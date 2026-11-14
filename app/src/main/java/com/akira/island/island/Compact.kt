@@ -111,34 +111,36 @@ import com.akira.island.core.tr
 import com.akira.island.ui.Inter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.palette.graphics.Palette
+import androidx.core.graphics.drawable.toBitmap
 
-/** Цифры одной ширины, чтобы время не «прыгало» */
 val Digits = TextStyle(fontFamily = Inter, fontFeatureSettings = "tnum", fontWeight = FontWeight.SemiBold)
 
-/** Высота капсулы, когда в ней что-то есть: чуть толще пустой, чтобы не выглядеть тонкой полоской. */
 fun activeHeight(s: IslandSettings): Dp = (s.height + s.activeExtra).dp
-
-/** Свободное место над камерой посередине — содержимое туда не заходит. */
 fun compactGap(s: IslandSettings): Dp = s.cameraGap.dp.coerceAtLeast(8.dp)
-
-/** Самое широкое содержимое одной боковой части. */
 fun sideMax(s: IslandSettings): Dp = activeHeight(s) * 2.6f
-
-/** Высота события: заметно выше свёрнутого острова, как у раскрытых уведомлений iPhone (62 при высоте 37). */
 fun noticeHeight(s: IslandSettings): Dp = (s.height.dp * 1.68f).coerceAtLeast(56.dp)
-
-/** Высота входящего звонка: аватар, имя и две большие кнопки в одну строку (84 при высоте 37). */
 fun callHeight(s: IslandSettings): Dp = (s.height.dp * 2.27f).coerceAtLeast(76.dp)
-
-/** Ниже этой линии камера уже не мешает тексту — сюда ставится содержимое раскрытых карточек. */
 fun cameraInset(s: IslandSettings): Dp = s.height.dp * 0.5f + 11.5.dp
 
-/** Отрисовка обычного Drawable внутри Compose без дополнительных библиотек. */
 @Composable
 private fun DrawableImage(drawable: Drawable, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         drawable.setBounds(0, 0, size.width.toInt(), size.height.toInt())
         drawable.draw(drawContext.canvas.nativeCanvas)
+    }
+}
+
+/** Получаем акцентный цвет иконки для фона */
+@Composable
+fun rememberAppColor(icon: Drawable): Color {
+    return remember(icon) {
+        runCatching {
+            val bmp = icon.toBitmap(96, 96)
+            val palette = Palette.from(bmp).maximumColorCount(12).generate()
+            val rgb = palette.getVibrantColor(palette.getLightVibrantColor(palette.getDominantColor(0xFF000000.toInt())))
+            Color(rgb).copy(alpha = 0.45f)
+        }.getOrDefault(Color.Transparent)
     }
 }
 
@@ -149,7 +151,6 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
     val side = sideMax(s)
     val icon = h * 0.5f
     when (act) {
-        // Пустая капсула; на экране блокировки слева от камеры — замок
         is Act.Idle -> Box(Modifier.size(s.width.dp, s.height.dp), contentAlignment = Alignment.CenterStart) {
             val keyguard by IslandBus.keyguard.collectAsState()
             AnimatedVisibility(s.evLock && keyguard, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
@@ -157,18 +158,22 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             }
         }
 
-        // НОВОЕ: иконка запущенного приложения
-        is Act.AppA -> Box(
-            Modifier.size(s.width.dp, s.height.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            DrawableImage(
-                drawable = act.icon,
-                modifier = Modifier
-                    .padding(start = s.height.dp * 0.38f)
-                    .size(s.height.dp * 0.55f)
-                    .clip(RoundedCornerShape(s.height.dp * 0.18f)),
-            )
+        is Act.AppA -> {
+            val bgColor = if (s.cardAppColor) rememberAppColor(act.icon) else Color.Transparent
+            Box(
+                Modifier
+                    .size(s.width.dp, s.height.dp)
+                    .background(bgColor),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                DrawableImage(
+                    drawable = act.icon,
+                    modifier = Modifier
+                        .padding(start = s.height.dp * 0.38f)
+                        .size(s.height.dp * 0.55f)
+                        .clip(RoundedCornerShape(s.height.dp * 0.18f)),
+                )
+            }
         }
 
         is Act.MediaA -> MediaCompact(act.m, s)
@@ -282,7 +287,6 @@ private fun TimeText(text: String, color: Color, size: Int = 16, weight: FontWei
     Text(text, color = color, fontSize = size.sp, style = Digits.copy(fontWeight = weight), maxLines = 1, softWrap = false)
 }
 
-/** Мягко светящаяся точка — признак того, что фонарик горит. */
 @Composable
 private fun GlowDot(color: Color, size: Dp, animate: Boolean) {
     val time = rememberFxClock(animate)
@@ -294,9 +298,6 @@ private fun GlowDot(color: Color, size: Dp, animate: Boolean) {
     }
 }
 
-/**
- * Левая и правая части свёрнутой капсулы, как на iPhone.
- */
 @Composable
 fun CompactRow(
     h: Dp,
