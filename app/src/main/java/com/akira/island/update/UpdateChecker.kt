@@ -31,7 +31,6 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Новая версия на GitHub: номер, что изменилось и откуда скачать APK. */
 data class Release(
     val version: String,
     val notes: String,
@@ -55,11 +54,6 @@ sealed interface DownloadState {
     data class Failed(val message: String) : DownloadState
 }
 
-/**
- * Обновление из приложения: смотрит последний релиз на GitHub, при новой версии показывает кнопку
- * «Обновить», скачивает APK и открывает системную установку. Подпись у всех сборок одна,
- * поэтому APK ставится поверх.
- */
 object UpdateChecker {
     const val REPO = "roman-tt-ru-tt/Dynamic-Island"
     private const val CHECK_EVERY_MS = 3 * 60 * 60 * 1000L
@@ -67,19 +61,12 @@ object UpdateChecker {
     val state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val download = MutableStateFlow<DownloadState>(DownloadState.Idle)
 
-    /** О какой версии остров уже сообщил плашкой — чтобы не повторять каждые 3 часа */
     private var announced: String? = null
 
     fun currentVersion(context: Context): String = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName
     }.getOrNull() ?: "0"
 
-    /**
-     * [force] — проверка по кнопке: показывает «последняя версия» и ошибки связи.
-     * Фоновая раз в 3 часа молчит, если сети нет или версия, от которой отказались, не изменилась.
-     * [announce] — проверка из службы острова: о новой версии сообщает плашка на острове
-     * (нажатие открывает приложение с кнопкой «Обновить»).
-     */
     suspend fun check(context: Context, force: Boolean, announce: Boolean = false) {
         val s = SettingsRepo.current
         val now = System.currentTimeMillis()
@@ -87,7 +74,6 @@ object UpdateChecker {
         if (state.value is UpdateState.Checking) return
         state.value = UpdateState.Checking
         val result = runCatching { withContext(Dispatchers.IO) { fetchLatest() } }
-        // Без связи проверка не считается: повторим при следующей возможности, а не через 3 часа
         if (result.isSuccess) SettingsRepo.update { copy(lastUpdateCheck = now) }
         val release = result.getOrNull()
         state.value = when {
@@ -100,7 +86,6 @@ object UpdateChecker {
             else -> UpdateState.Available(release)
         }
         val available = (state.value as? UpdateState.Available)?.release
-        // Ошибка прошлой попытки к новой проверке не относится — карточка снова предлагает «Обновить»
         if (available != null && download.value is DownloadState.Failed) download.value = DownloadState.Idle
         if (announce && available != null && available.version != announced) {
             announced = available.version
@@ -120,10 +105,8 @@ object UpdateChecker {
         }
     }
 
-    /** Пример из «Проверки»: ничего не скачивается, проценты бегут сами, потом «Обновлено». */
     const val DEMO_APK = "demo://update"
 
-    /** Карточка «Обновлено до …» в острове — после установки и в примере. */
     fun updatedNotice(context: Context, version: String) = Notice(
         title = tr("Обновлено до $version", "Updated to $version"),
         icon = Ios.load(context, R.drawable.ios_check),
@@ -135,7 +118,6 @@ object UpdateChecker {
         extraMs = 2_000,
     )
 
-    /** «Проверка» → «Обновление»: та же карточка, что придёт с новой версией, только понарошку. */
     fun showDemo(context: Context) {
         download.value = DownloadState.Idle
         IslandBus.post(
@@ -153,24 +135,17 @@ object UpdateChecker {
         )
     }
 
-    /** Имя скачанного APK: по версии, без лишних символов из тега. */
     private fun apkName(version: String) = "DynamicIsland-${version.filter { it.isLetterOrDigit() || it == '.' }}.apk"
 
-    /**
-     * Скачанный APK именно этой версии, если он ещё лежит в кэше: тогда «Установить» ставит его без новой
-     * загрузки. Файл другой версии или стёртый системой не подходит — нужно скачать заново.
-     */
     fun readyFile(release: Release, state: DownloadState): File? =
         (state as? DownloadState.Ready)?.file?.takeIf { it.name == apkName(release.version) && it.exists() }
 
-    /** «Позже»: про эту версию больше не напоминаем, пока не выйдет следующая. */
     fun skip(version: String) {
         SettingsRepo.update { copy(skippedVersion = version) }
         state.value = UpdateState.Idle
         download.value = DownloadState.Idle
     }
 
-    /** Скачивает APK в кэш приложения и сразу открывает установку. */
     suspend fun downloadAndInstall(context: Context, release: Release) {
         val url = release.apkUrl
         if (url == DEMO_APK) {
@@ -245,10 +220,6 @@ object UpdateChecker {
         install(context, file)
     }
 
-    /**
-     * Открывает системную установку. Если приложению ещё не разрешена установка из неизвестных
-     * источников, сначала открываются нужные настройки — после разрешения нажмите «Установить» снова.
-     */
     fun install(context: Context, file: File) {
         runCatching {
             if (!context.packageManager.canRequestPackageInstalls()) {
