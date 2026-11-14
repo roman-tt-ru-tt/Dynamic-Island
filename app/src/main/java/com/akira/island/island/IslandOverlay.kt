@@ -251,8 +251,8 @@ fun IslandOverlay(
         if (i > 0 && !ringing) persistent.add(0, persistent.removeAt(i))
         addAll(persistent)
 
-        // НОВОЕ: если никакой другой активности нет — показываем иконку открытого приложения
-        if (persistent.isEmpty() && notice == null && foreground != null && foreground != context.packageName) {
+        // НОВОЕ: если никакой другой активности нет — показываем иконку открытого приложения (если включено)
+        if (s.cardAppIcon && persistent.isEmpty() && notice == null && foreground != null && foreground != context.packageName) {
             val icon = runCatching { context.packageManager.getApplicationIcon(foreground!!) }.getOrNull()
             if (icon != null) add(Act.AppA(foreground!!, icon))
         }
