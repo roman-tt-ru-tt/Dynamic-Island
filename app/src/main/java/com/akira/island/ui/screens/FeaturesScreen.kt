@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Tune
@@ -84,10 +85,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.akira.island.data.QuickAction
 
-/**
- * «Функции»: что остров показывает и как с ним обращаться. Внешний вид — во вкладке «Оформление»,
- * версия, помощь и ссылки — в «О приложении».
- */
 @Composable
 fun FeaturesScreen(open: (Screen) -> Unit) {
     val s by SettingsRepo.state.collectAsState()
@@ -125,7 +122,6 @@ fun FeaturesScreen(open: (Screen) -> Unit) {
 
         SectionHeader(tr("Общие", "General"))
         Group {
-            // Значок глобуса и «Language» рядом — язык найдётся, даже если сейчас он непонятен
             GroupItem(Pos.First, Icons.Rounded.Language, if (Lang.en) "Language" else "Язык · Language", s.language.title,
                 color = Tile.Blue, onClick = { languageDialog = true }) { Arrow() }
             GroupItem(Pos.Last, Icons.Rounded.Restore, tr("Сбросить все настройки", "Reset all settings"),
@@ -159,7 +155,6 @@ fun FeaturesScreen(open: (Screen) -> Unit) {
     }
 }
 
-/** «Поведение»: когда остров виден, как сворачивается и чем отзывается. */
 @Composable
 fun BehaviorScreen(onBack: () -> Unit) {
     val s by SettingsRepo.state.collectAsState()
@@ -174,12 +169,15 @@ fun BehaviorScreen(onBack: () -> Unit) {
             GroupToggle(Pos.Middle, Icons.Rounded.ScreenRotation, tr("Скрывать в альбомной ориентации", "Hide in landscape"),
                 tr("Не мешает играм и видео", "Stays out of games and videos"),
                 s.hideInLandscape, color = Tile.Gray) { v -> SettingsRepo.update { copy(hideInLandscape = v) } }
+            GroupToggle(Pos.Middle, Icons.Rounded.ScreenLockRotation, tr("Не переворачивать остров", "Keep island upright"),
+                tr("Остров останется сверху, даже если экран повернулся горизонтально",
+                    "The island stays at the top even if the screen rotates horizontally"),
+                s.keepUpright, color = Tile.Indigo) { v -> SettingsRepo.update { copy(keepUpright = v) } }
             GroupToggle(Pos.Last, Icons.Rounded.Apps, tr("Прятать плеер в его приложении", "Hide the player in its own app"),
                 tr("Карточка музыки не показывается, пока открыт сам плеер", "The music card hides while the player itself is open"),
                 s.hideWhenPlayerOpen, color = Tile.Blue) { v -> SettingsRepo.update { copy(hideWhenPlayerOpen = v) } }
         }
 
-        // Например, только днём: с 10:00 до 23:00; можно и через полночь — с 22:00 до 7:00
         SectionHeader(tr("Расписание", "Schedule"))
         Group {
             GroupToggle(if (s.scheduleOn) Pos.First else Pos.Single, Icons.Rounded.Schedule, tr("По расписанию", "On a schedule"),
@@ -206,7 +204,6 @@ fun BehaviorScreen(onBack: () -> Unit) {
             }
         }
 
-        // Нажатие на пустой остров: лишние кнопки убираются, а можно не раскрывать его вовсе
         SectionHeader(tr("Пустой остров по нажатию", "Tapping the empty island"))
         Group {
             GroupToggle(if (s.idleExpand) Pos.First else Pos.Single, Icons.Rounded.UnfoldMore, tr("Раскрывать", "Expand"),
@@ -217,7 +214,6 @@ fun BehaviorScreen(onBack: () -> Unit) {
                 QuickAction.entries.forEachIndexed { i, a ->
                     GroupToggle(if (i == QuickAction.entries.lastIndex) Pos.Last else Pos.Middle, a.settingsIcon, a.title,
                         a.hint, a in s.quickActions, color = Tile.Orange) { v ->
-                        // Порядок кнопок — как в списке, что бы ни включали первым
                         SettingsRepo.update { copy(quickActions = QuickAction.entries.filter { if (it == a) v else it in quickActions }) }
                     }
                 }
@@ -242,10 +238,8 @@ fun BehaviorScreen(onBack: () -> Unit) {
     }
 }
 
-/** Час расписания: «10:00». */
 private fun hourLabel(h: Int) = "%d:00".format(h)
 
-/** Подпись для «Сворачивать раскрытый остров». */
 private fun collapseLabel(sec: Int) = if (sec <= 0) tr("Только касанием мимо или свайпом вверх", "Only by tapping outside or swiping up")
     else tr("Через $sec секунд без касаний", "After $sec seconds without a touch")
 
@@ -254,7 +248,6 @@ private val accentColors = listOf(
     0xFFFF453A, 0xFFFF2D92, 0xFFBF5AF2, 0xFFFFFFFF,
 )
 
-/** «Уведомления»: сообщения приложений в острове — что показывать, сколько текста и каким цветом кнопки. */
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
     val s by SettingsRepo.state.collectAsState()
@@ -295,11 +288,9 @@ fun NotificationsScreen(onBack: () -> Unit) {
     }
 }
 
-/** Как выглядят «Ответить», «Пометить прочитанным» и кнопка отправки с выбранным цветом. */
 @Composable
 private fun AccentPreview(s: IslandSettings) {
     val context = LocalContext.current
-    // В режиме «Из аватара» цвет зависит от самого уведомления — в примере берём оранжевый
     val accent = resolveAccent(context, s, Tints.Orange)
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Color.Black).padding(14.dp),
@@ -334,7 +325,6 @@ private val QuickAction.settingsIcon: ImageVector
         QuickAction.LOCK -> Icons.Rounded.Lock
     }
 
-/** Подпись к кнопке — только там, где непонятно по названию */
 private val QuickAction.hint: String?
     get() = when (this) {
         QuickAction.SCREENSHOT -> tr("Остров на миг прячется — на снимке его нет (Android 9+)",
