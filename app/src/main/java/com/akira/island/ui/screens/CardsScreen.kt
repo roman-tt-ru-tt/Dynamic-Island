@@ -2,6 +2,7 @@ package com.akira.island.ui.screens
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PlayCircle
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
@@ -73,9 +74,14 @@ fun CardsScreen(onBack: () -> Unit, onInstruction: () -> Unit) {
             GroupToggle(Pos.Middle, Icons.Rounded.OfflineBolt, tr("Индикатор зарядки", "Charging indicator"),
                 tr("Когда устройство заряжается", "When the device is charging"),
                 s.cardCharging, color = Tile.Green) { set { copy(cardCharging = it) } }
-            GroupToggle(Pos.Last, Icons.Rounded.Downloading, tr("Индикатор прогресса", "Progress indicator"),
+            GroupToggle(Pos.Middle, Icons.Rounded.Downloading, tr("Индикатор прогресса", "Progress indicator"),
                 tr("Загрузки и отправка в Google Play, Telegram и других приложениях", "Downloads and uploads in Google Play, Telegram and other apps"),
                 s.cardProgress, color = Tile.Teal) { set { copy(cardProgress = it) } }
+            // НОВОЕ: переключатель иконки открытого приложения
+            GroupToggle(Pos.Last, Icons.Rounded.Apps, tr("Иконка открытого приложения", "Running app icon"),
+                tr("Показывать иконку приложения, в котором вы находитесь, когда остров пуст",
+                    "Show the icon of the app you're in when the island is idle"),
+                s.cardAppIcon, color = Tile.Blue) { set { copy(cardAppIcon = it) } }
         }
 
         SectionHeader(tr("В дороге", "On the road"))
