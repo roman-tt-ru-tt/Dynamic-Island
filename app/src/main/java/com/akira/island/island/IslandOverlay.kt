@@ -3,8 +3,6 @@ package com.akira.island.island
 import android.content.Context
 import android.media.MediaPlayer
 import android.os.Build
-import android.os.Environment
-import android.os.FileObserver
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -94,8 +92,6 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.palette.graphics.Palette
-import androidx.core.graphics.drawable.toBitmap
 import com.akira.island.R
 import com.akira.island.core.BatteryInfo
 import com.akira.island.core.ChronoInfo
@@ -242,6 +238,7 @@ fun IslandOverlay(
         if (i > 0 && !ringing) persistent.add(0, persistent.removeAt(i))
         addAll(persistent)
 
+        // Иконка открытого приложения
         if (s.cardAppIcon && persistent.isEmpty() && notice == null && foreground != null && foreground != context.packageName) {
             val icon = runCatching { context.packageManager.getApplicationIcon(foreground!!) }.getOrNull()
             if (icon != null) add(Act.AppA(foreground!!, icon))
@@ -319,37 +316,9 @@ fun IslandOverlay(
     val onBubble = remember(onBubbleBounds) { { r: Rect -> onBubbleBounds(if (hiddenNow.value) Rect.Zero else r) } }
     val eggOn = egg && !calibrating
 
-    // Анимация раздувания
+    // Анимация раздувания и звук
     val screenshotPulse = remember { Animatable(1f) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    
-    // Следим за папкой Screenshots для отлова системного скриншота
-    DisposableEffect(Unit) {
-        val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString() + "/Screenshots"
-        val observer = object : FileObserver(path, FileObserver.CREATE) {
-            override fun onEvent(event: Int, file: String?) {
-                if (file?.endsWith(".png") == true || file?.endsWith(".jpg") == true) {
-                    if (s.screenshotPulse) {
-                        IslandBus.scope.launch {
-                            screenshotPulse.snapTo(1.35f)
-                            // Звук
-                            runCatching {
-                                player?.release()
-                                player = MediaPlayer.create(context, R.raw.screenshot)
-                                player?.start()
-                            }
-                            screenshotPulse.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
-                        }
-                    }
-                }
-            }
-        }
-        runCatching { observer.startWatching() }
-        onDispose {
-            runCatching { observer.stopWatching() }
-            player?.release()
-        }
-    }
 
     LaunchedEffect(Unit) {
         IslandBus.commands.collect { cmd ->
@@ -367,20 +336,6 @@ fun IslandOverlay(
         }
     }
 
-    // Вычисляем цвет приложения, если показываем AppA
-    val appColor = if (primary is Act.AppA) {
-        remember(primary.icon) {
-            runCatching {
-                val bmp = primary.icon.toBitmap(96, 96)
-                val palette = Palette.from(bmp).maximumColorCount(12).generate()
-                val rgb = palette.getVibrantColor(palette.getLightVibrantColor(palette.getDominantColor(0xFF000000.toInt())))
-                Color(rgb)
-            }.getOrDefault(Color(s.color))
-        }
-    } else {
-        Color(s.color)
-    }
-
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         if (!calibrating) PayEffects(primary, { body.value }, s)
         if (eggOn) EggGlow { body.value }
@@ -390,7 +345,7 @@ fun IslandOverlay(
             enter = if (s.reduceEffects) fadeIn() else scaleIn(islandSpec(s), initialScale = 0.3f, transformOrigin = top) + fadeIn(tween(120)),
             exit = if (s.reduceEffects) fadeOut() else scaleOut(islandSpec(s), targetScale = 0.3f, transformOrigin = top) + fadeOut(tween(160)),
         ) {
-            IslandRow(slot, s, primary, showExpanded, lyrics, battery, bubbleVisible, lastSecondary[0], calibrating, screenshotPulse.value, appColor, onBody, onBubble)
+            IslandRow(slot, s, primary, showExpanded, lyrics, battery, bubbleVisible, lastSecondary[0], calibrating, screenshotPulse.value, onBody, onBubble)
         }
         if (eggOn) {
             EggSparks { body.value }
@@ -411,7 +366,6 @@ private fun IslandRow(
     bubbleAct: Act?,
     calibrating: Boolean,
     screenshotPulse: Float,
-    appColor: Color,
     onBodyBounds: (Rect) -> Unit,
     onBubbleBounds: (Rect) -> Unit,
 ) {
@@ -429,7 +383,7 @@ private fun IslandRow(
         verticalAlignment = Alignment.Top,
     ) {
         Spacer(Modifier.animatedWidth(slot))
-        IslandBody(primary, showExpanded, s, lyrics, battery, calibrating, screenshotPulse, appColor, onBodyBounds)
+        IslandBody(primary, showExpanded, s, lyrics, battery, calibrating, screenshotPulse, onBodyBounds)
         BubbleSlot(slot, bubbleVisible, bubbleAct, s, onBubbleBounds)
     }
 }
@@ -472,7 +426,6 @@ private fun IslandBody(
     battery: BatteryInfo,
     calibrating: Boolean,
     screenshotPulse: Float,
-    appColor: Color,
     onBounds: (Rect) -> Unit,
 ) {
     val context = LocalContext.current
@@ -578,9 +531,9 @@ private fun IslandBody(
             }
             .then(
                 if (s.liquidGlass && !calibrating) {
-                    Modifier.glassSurface(shape, appColor, s.glassOpacity / 100f, tilt = { tilt.value }) { sheen.value }
+                    Modifier.glassSurface(shape, Color(s.color), s.glassOpacity / 100f, tilt = { tilt.value }) { sheen.value }
                 } else {
-                    Modifier.background(if (calibrating) CalibrationRed else appColor)
+                    Modifier.background(if (calibrating) CalibrationRed else Color(s.color))
                 },
             )
             .then(
