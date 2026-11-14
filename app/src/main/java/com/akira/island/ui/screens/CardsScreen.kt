@@ -5,6 +5,7 @@ import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FlashlightOn
