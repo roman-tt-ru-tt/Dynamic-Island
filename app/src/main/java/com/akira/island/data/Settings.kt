@@ -112,6 +112,8 @@ data class IslandSettings(
     val cardCharging: Boolean = true,
     val cardCall: Boolean = true,
     val cardMessages: Boolean = true,
+    /** Показывать иконку приложения, в котором вы находитесь, когда остров пуст */
+    val cardAppIcon: Boolean = true,
     /** Кнопки «Ответить» и «Пометить прочитанным» в карточке уведомления */
     val msgActions: Boolean = true,
     /** Навигация, такси и доставка — «живые активности» из постоянных уведомлений */
