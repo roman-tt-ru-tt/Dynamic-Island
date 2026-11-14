@@ -6,7 +6,6 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FlashlightOn
 import androidx.compose.material.icons.rounded.HourglassEmpty
@@ -29,7 +28,6 @@ import com.akira.island.ui.Pos
 import com.akira.island.ui.SectionHeader
 import com.akira.island.ui.Tile
 
-/** «Динамические карточки»: что остров показывает, пока это идёт, — по разделам. */
 @Composable
 fun CardsScreen(onBack: () -> Unit, onInstruction: () -> Unit) {
     val s by SettingsRepo.state.collectAsState()
@@ -82,10 +80,10 @@ fun CardsScreen(onBack: () -> Unit, onInstruction: () -> Unit) {
                 tr("Показывать иконку приложения, в котором вы находитесь, когда остров пуст",
                     "Show the icon of the app you're in when the island is idle"),
                 s.cardAppIcon, color = Tile.Blue) { set { copy(cardAppIcon = it) } }
-            GroupToggle(Pos.Last, Icons.Rounded.ColorLens, tr("Цвет приложения", "App color"),
-                tr("Окрашивать остров в акцентный цвет открытого приложения (как на iOS)",
-                    "Tint the island to match the app you're in (like on iOS)"),
-                s.cardAppColor, color = Tile.Pink) { set { copy(cardAppColor = it) } }
+            GroupToggle(Pos.Last, Icons.Rounded.Bolt, tr("Увеличивать при скриншоте", "Pulse on screenshot"),
+                tr("Кратко увеличивать иконку, когда делаете снимок экрана (как на iOS)",
+                    "Briefly enlarge the icon when you take a screenshot (like on iOS)"),
+                s.screenshotPulse, color = Tile.Orange) { set { copy(screenshotPulse = it) } }
         }
 
         SectionHeader(tr("В дороге", "On the road"))
