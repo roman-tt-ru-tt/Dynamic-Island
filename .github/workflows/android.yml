@@ -64,6 +64,9 @@ jobs:
           echo "update=$update" >> "$GITHUB_OUTPUT"
 
       # Gradle собирает APK без подписи: ключ ему не нужен, и сторонний код сборки его не увидит
+      - name: Разрешить запуск Gradle
+        run: chmod +x gradlew
+
       - name: Сборка
         run: ./gradlew --no-daemon assembleRelease
 
