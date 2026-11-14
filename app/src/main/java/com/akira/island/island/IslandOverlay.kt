@@ -219,6 +219,8 @@ fun IslandOverlay(
     }
     // Смахнутый входящий не показываем, пока звонит (сбрасывает служба, когда звонить перестали)
     val callHidden by IslandBus.callHidden.collectAsState()
+    val context = LocalContext.current
+
     val acts = buildList {
         // Входящий звонок важнее всего, как на iPhone
         if (call != null && call.incoming && !callHidden) add(Act.CallA(call))
@@ -248,6 +250,12 @@ fun IslandOverlay(
         val i = persistent.indexOfFirst { it.id == focus }
         if (i > 0 && !ringing) persistent.add(0, persistent.removeAt(i))
         addAll(persistent)
+
+        // НОВОЕ: если никакой другой активности нет — показываем иконку открытого приложения
+        if (persistent.isEmpty() && notice == null && foreground != null && foreground != context.packageName) {
+            val icon = runCatching { context.packageManager.getApplicationIcon(foreground!!) }.getOrNull()
+            if (icon != null) add(Act.AppA(foreground!!, icon))
+        }
     }
 
     // Пока двигают ползунок «Ширина с активностью», на острове пример: стрелка и метры
