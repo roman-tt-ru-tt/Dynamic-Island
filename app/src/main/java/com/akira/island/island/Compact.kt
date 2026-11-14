@@ -21,6 +21,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -43,7 +44,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -67,7 +67,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -145,7 +144,7 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             }
         }
 
-        // Круглая иконка приложения
+        // Круглая иконка, вписанная в остров
         is Act.AppA -> Box(
             Modifier.size(s.width.dp, s.height.dp),
             contentAlignment = Alignment.CenterStart,
@@ -153,11 +152,9 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             DrawableImage(
                 drawable = act.icon,
                 modifier = Modifier
-                    .padding(start = s.height.dp * 0.15f)
-                    .size(h * 1.1f) // Большая, выступает за края
-                    .clip(CircleShape)
-                    .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                    .shadow(6.dp, CircleShape),
+                    .padding(start = s.height.dp * 0.2f)
+                    .size(h * 0.65f) // Чуть больше стандартного
+                    .clip(CircleShape),
             )
         }
 
