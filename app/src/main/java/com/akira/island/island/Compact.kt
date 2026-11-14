@@ -38,7 +38,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.painter.rememberDrawablePainter
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.Canvas
@@ -72,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.Density
@@ -88,6 +88,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.drawable.Drawable
 import android.widget.Toast
 import com.akira.island.core.AppMessage
 import com.akira.island.core.CallInfo
@@ -132,6 +133,15 @@ fun callHeight(s: IslandSettings): Dp = (s.height.dp * 2.27f).coerceAtLeast(76.d
 /** Ниже этой линии камера уже не мешает тексту — сюда ставится содержимое раскрытых карточек. */
 fun cameraInset(s: IslandSettings): Dp = s.height.dp * 0.5f + 11.5.dp
 
+/** Отрисовка обычного Drawable внутри Compose без дополнительных библиотек. */
+@Composable
+private fun DrawableImage(drawable: Drawable, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        drawable.setBounds(0, 0, size.width.toInt(), size.height.toInt())
+        drawable.draw(drawContext.canvas.nativeCanvas)
+    }
+}
+
 @Composable
 fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
     val h = activeHeight(s)
@@ -152,14 +162,12 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             Modifier.size(s.width.dp, s.height.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
-            Image(
-                painter = rememberDrawablePainter(act.icon),
-                contentDescription = act.pkg,
+            DrawableImage(
+                drawable = act.icon,
                 modifier = Modifier
                     .padding(start = s.height.dp * 0.38f)
                     .size(s.height.dp * 0.55f)
                     .clip(RoundedCornerShape(s.height.dp * 0.18f)),
-                contentScale = ContentScale.Crop,
             )
         }
 
@@ -200,7 +208,6 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
 
         is Act.ChronoA -> {
             val now = rememberWallNow(500)
-            // Запись экрана — красная, как на iPhone; таймеры и секундомеры Часов — оранжевые
             val recording = act.c.isRecording
             val tint = if (recording) Tints.Red else Tints.Orange
             CompactRow(h, gap, side * 1.4f,
@@ -242,7 +249,6 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
                 if (act.p.indeterminate) {
                     Icon(Ios.download, null, tint = Tints.Blue, modifier = Modifier.size(icon))
                 } else {
-                    // Кольцо доезжает до нового процента, а не прыгает
                     val fraction by animateFloatAsState(act.p.fraction, tween(450, easing = FastOutSlowInEasing), label = "progress")
                     ProgressRing(fraction, Tints.Blue, Modifier.size(h * 0.52f), stroke = 3.dp)
                 }
@@ -276,10 +282,9 @@ private fun TimeText(text: String, color: Color, size: Int = 16, weight: FontWei
     Text(text, color = color, fontSize = size.sp, style = Digits.copy(fontWeight = weight), maxLines = 1, softWrap = false)
 }
 
-/** Мягко светящаяся точка — признак того, что фонарик горит. Свечение только перерисовывается. */
+/** Мягко светящаяся точка — признак того, что фонарик горит. */
 @Composable
 private fun GlowDot(color: Color, size: Dp, animate: Boolean) {
-    // Фонарик и навигатор горят долго — свечение идёт с частотой из «Эффектов» (по умолчанию 60 кадров), а не до 120
     val time = rememberFxClock(animate)
     Canvas(Modifier.size(size * 1.8f)) {
         val k = if (animate) 0.55f + 0.45f * pingPong(time.value, 1100) else 1f
@@ -290,11 +295,7 @@ private fun GlowDot(color: Color, size: Dp, animate: Boolean) {
 }
 
 /**
- * Левая и правая части свёрнутой капсулы, как на iPhone: значок у левого края, текст или время
- * у правого, посередине камера. Капсула шире пустой на «Ширину с активностью»; если содержимое
- * не помещается, оно чуть уменьшается, а если и так длиннее — капсула расширяется ровно настолько,
- * чтобы не заходить на камеру.
- * Отступ от края равен отступу сверху — содержимое вписано в скругление, как требует Apple.
+ * Левая и правая части свёрнутой капсулы, как на iPhone.
  */
 @Composable
 fun CompactRow(
@@ -305,7 +306,6 @@ fun CompactRow(
     right: @Composable BoxScope.() -> Unit,
     shrink: Boolean = true,
 ) {
-    // Капсула с активностью шире спокойной на «Ширину с активностью»; длинный текст раздвинет её сам
     val st = SettingsRepo.state.collectAsState().value
     val baseWidth = st.width.dp + st.activeWidth.dp
     val density = LocalDensity.current
@@ -318,8 +318,6 @@ fun CompactRow(
         var r = subcompose("r") { Box(contentAlignment = Alignment.Center, content = right) }.first().measure(loose)
         val base = baseWidth.roundToPx()
         val sideNeed = maxOf(l.width, r.width)
-        // В узкой капсуле содержимое сначала уменьшается (до 70%) — как будто нарисовано мельче, —
-        // и только если и так не помещается, капсулу раздвигает
         val sideRoom = (base - gapPx) / 2 - pad
         val k = if (shrink && sideNeed > sideRoom && sideRoom > 0) (sideRoom.toFloat() / sideNeed).coerceIn(0.7f, 1f) else 1f
         if (k < 1f) {
@@ -345,22 +343,15 @@ private fun MediaCompact(m: MediaInfo, s: IslandSettings) {
     val h = activeHeight(s)
     val art = h * 0.58f
     val egg by IslandBus.egg.collectAsState()
-    // Новый трек: обложка сменяется плавно, цвет эквалайзера перетекает в цвет новой обложки
     val accent by animateColorAsState(m.accent, tween(400), label = "accent")
     CompactRow(h, compactGap(s), sideMax(s),
         left = { Crossfade(m.art, animationSpec = tween(300), label = "art") { Art(it, art, art * 0.24f) } },
         right = {
-            // Пасхалка: вместо эквалайзера бьётся душа
             if (egg) SoulHeart(Modifier.size(h * 0.5f)) else Equalizer(accent, m.playing, s.liveEqualizer, Modifier.size(h * 0.6f, h * 0.42f))
         },
     )
 }
 
-/**
- * Событие как на iPhone. Широкое — остров разворачивается почти на всю ширину экрана:
- * слева значок и подпись, справа состояние, батарейка или кольцо. Пилюля — короткое
- * переключение (режим звука), значок качается. Сообщение — аватар, имя и текст.
- */
 @Composable
 private fun NoticeCompact(n: Notice, s: IslandSettings, wideWidth: Dp) {
     when {
@@ -378,7 +369,6 @@ private fun NoticeCompact(n: Notice, s: IslandSettings, wideWidth: Dp) {
 
 @Composable
 private fun WideNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
-    // Значок «выпрыгивает», батарейка и кольцо заполняются — как на iPhone
     val pop = remember(n.id) { Animatable(if (s.reduceEffects) 1f else 0.3f) }
     val fill = remember(n.id) { Animatable(if (s.reduceEffects) 1f else 0f) }
     LaunchedEffect(n.id) {
@@ -386,8 +376,6 @@ private fun WideNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
         fill.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
     }
     val height = noticeHeight(s)
-    // Как в ролике: слева значок и что случилось, справа — значение цветом события и батарейка или кольцо.
-    // У наушников с известным зарядом значение — проценты, иначе — подпись («Подключено»)
     val value = when {
         n.ring != null -> "${(n.ring * 100).toInt()}%"
         else -> n.state ?: n.caption
@@ -399,7 +387,6 @@ private fun WideNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Icon(n.icon, null, tint = n.tint, modifier = Modifier.size(height * 0.355f).scale(pop.value))
             Spacer(Modifier.width(9.dp))
-            // «Не беспокоить», «Режим полёта» не влезают до камеры — шрифт чуть меньше, а не многоточие
             FitText(n.title, Color.White, 17.sp, 13.sp, FontWeight.SemiBold, Modifier.weight(1f, fill = false))
         }
         Spacer(Modifier.width(compactGap(s)))
@@ -421,14 +408,12 @@ private fun WideNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
     }
 }
 
-/** Пилюля режима звука: значок слева качается, как колокольчик на iPhone, состояние справа. */
 @Composable
 private fun PillNotice(n: Notice, s: IslandSettings) {
     val h = activeHeight(s)
     val swing = remember(n.id) { Animatable(0f) }
     LaunchedEffect(n.id) {
         if (s.reduceEffects || !s.fxShake) return@LaunchedEffect
-        // Затухающее покачивание: 22° → -16° → 12° → … → 0
         var amp = 22f
         repeat(6) {
             swing.animateTo(amp, tween(70))
@@ -451,18 +436,10 @@ private fun PillNotice(n: Notice, s: IslandSettings) {
                 Text(n.state, color = n.tint, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
         },
-        // Как в ролике: подпись в полный размер, пилюля для неё чуть шире
         shrink = false,
     )
 }
 
-/**
- * Уведомление приложения — как развёрнутый остров iPhone, но по меркам всплывающего уведомления Android:
- * та же ширина (по 16 dp от краёв), аватар 40 dp, имя 15 sp, текст 14 sp, кнопки 14 sp. Сверху, по бокам
- * от камеры, — значок и название приложения и «сейчас»; само уведомление начинается под строкой
- * состояния, там же, где системное. Ниже — кнопки из уведомления («Ответить», «Пометить прочитанным»).
- * Все размеры в sp растут вместе с размером шрифта Android, ширина и отступы — с настройками острова.
- */
 @Composable
 private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("UNUSED_PARAMETER") wideWidth: Dp) {
     val context = LocalContext.current
@@ -470,19 +447,16 @@ private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("
     val iconSize = 40.dp
     val reply by IslandBus.reply.collectAsState()
     val locked by IslandBus.locked.collectAsState()
-    // На заблокированном телефоне — как в шторке: без кнопок, а скрытые уведомления без имени и текста
     val hidden = locked && m.sensitive
     val replyAction = reply?.takeIf { it.noticeId == n.id && !locked }?.action
     val accent = rememberAccent(s, m.accent)
     var open by remember(n.id) { mutableStateOf(false) }
     val dim = Color.White.copy(alpha = 0.55f)
 
-    // Пока отвечают или листают переписку, плашка не уходит по таймеру
     DisposableEffect(open, replyAction != null) {
         IslandBus.noticeHold.value = open || replyAction != null
         onDispose { IslandBus.noticeHold.value = false }
     }
-    // Плашка ушла — ввод закрывается, окну возвращается «неактивный» режим
     DisposableEffect(n.id) {
         onDispose { if (IslandBus.reply.value?.noticeId == n.id) IslandBus.reply.value = null }
     }
@@ -493,7 +467,6 @@ private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("
             .width(messageWidth())
             .padding(bottom = 12.dp),
     ) {
-        // Шапка на уровне камеры: слева приложение, справа время — как боковые части острова iPhone
         Row(
             Modifier.fillMaxWidth().height(s.height.dp).padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -549,7 +522,6 @@ private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("
             }
         }
         if (replyAction != null) {
-            // Строка ответа стоит под текстом, как кнопки, — на одной линии с ним
             Box(Modifier.padding(start = 16.dp + iconSize + 12.dp, end = 16.dp)) {
                 ReplyField(replyAction, accent) { text ->
                     if (text.isBlank()) return@ReplyField
@@ -557,7 +529,6 @@ private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("
                         Messages.onReplied(m.key)
                         IslandBus.reply.value = null
                         IslandBus.notice.value = null
-                        // Как в ролике: на миг «Отправлено» с галочкой и кому
                         IslandBus.post(
                             Notice(
                                 title = tr("Отправлено", "Sent"),
@@ -569,20 +540,17 @@ private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("
                             ),
                         )
                     } else {
-                        // Поле остаётся открытым с текстом — можно попробовать ещё раз или ответить в приложении
                         Toast.makeText(context, tr("Не удалось отправить ответ", "Couldn't send the reply"), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         } else if (m.actions.isNotEmpty() && !locked) {
-            // Кнопки стоят под текстом, на одной линии с ним, как в шторке
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp + iconSize + 12.dp, end = 16.dp, top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 m.actions.forEachIndexed { i, a ->
-                    // Последняя кнопка уступает место, если подпись длинная
                     TextAction(a.title, accent, if (i == m.actions.lastIndex) Modifier.weight(1f, fill = false) else Modifier, size = 14.sp) {
                         if (a.isReply) {
                             IslandBus.reply.value = ReplyState(n.id, a)
@@ -597,21 +565,15 @@ private fun MessageCard(n: Notice, m: AppMessage, s: IslandSettings, @Suppress("
     }
 }
 
-/** Ширина плашки уведомления — как у всплывающего уведомления Android: по 16 dp от краёв экрана. */
 @Composable
 fun messageWidth(): Dp = (LocalConfiguration.current.screenWidthDp.dp - 32.dp).coerceAtMost(460.dp)
 
-/**
- * Откуда в плашке начинается само уведомление: под строкой состояния, на той же высоте, что у системного
- * уведомления, — с учётом того, на сколько остров опущен в настройках. Не выше шапки у камеры.
- */
 @Composable
 fun messageTop(s: IslandSettings): Dp {
     val status = statusBarHeight()
     return maxOf(s.height.dp + 6.dp, status + 24.dp - s.topOffset.dp)
 }
 
-/** Высота строки состояния — из ресурсов системы: окну острова отступы строки состояния не приходят. */
 @Composable
 private fun statusBarHeight(): Dp {
     val res = LocalContext.current.resources
@@ -623,7 +585,6 @@ private fun statusBarHeight(): Dp {
     }
 }
 
-/** Круглый аватар (или значок приложения) со значком приложения в углу. */
 @Composable
 private fun NotifIcon(m: AppMessage, n: Notice, size: Dp, ring: Color) {
     Box(Modifier.size(size + 4.dp)) {
@@ -644,7 +605,6 @@ private fun NotifIcon(m: AppMessage, n: Notice, size: Dp, ring: Color) {
     }
 }
 
-/** Счётчик непрочитанных со стрелкой: нажатие раскрывает всю переписку. */
 @Composable
 private fun CountPill(count: Int, open: Boolean, accent: Color, onClick: () -> Unit) {
     val ink = onAccent(accent)
@@ -658,7 +618,6 @@ private fun CountPill(count: Int, open: Boolean, accent: Color, onClick: () -> U
     }
 }
 
-/** Кнопка под текстом: просто жирная подпись цвета [accent], чуть тускнеет под пальцем. */
 @Composable
 private fun TextAction(title: String, accent: Color, modifier: Modifier = Modifier, size: TextUnit = 16.sp, onClick: () -> Unit) {
     val haptic = rememberHaptic()
@@ -681,18 +640,12 @@ private fun TextAction(title: String, accent: Color, modifier: Modifier = Modifi
     }
 }
 
-/**
- * Строка ответа как в ролике и в быстром ответе iOS: поле со скруглением, а справа от него — круглая
- * кнопка со стрелкой вверх цвета [accent]. Окну острова на это время выдаётся фокус (см. IslandService),
- * поэтому клавиатура покажется.
- */
 @Composable
 private fun ReplyField(action: MsgAction, accent: Color, onSend: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) {
-        // Окно получает фокус не сразу, поэтому просим клавиатуру несколько раз
         repeat(3) {
             delay(180)
             runCatching { focus.requestFocus() }
@@ -737,10 +690,6 @@ private fun ReplyField(action: MsgAction, accent: Color, onSend: (String) -> Uni
     }
 }
 
-/**
- * Оплата, как Apple Pay и как в ролике: слева знак бесконтактной оплаты, дуги которого загораются
- * по очереди, и «Оплата»; справа «К терминалу» и значок банка. Посередине — место под камеру.
- */
 @Composable
 private fun PayReady(title: String, caption: String?, appIcon: ImageBitmap?, s: IslandSettings, wideWidth: Dp) {
     val height = noticeHeight(s)
@@ -756,7 +705,6 @@ private fun PayReady(title: String, caption: String?, appIcon: ImageBitmap?, s: 
         Spacer(Modifier.width(compactGap(s)))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
             if (caption != null) {
-                // «Hold near reader» длиннее «К терминалу» — чуть уменьшается, а не обрезается
                 FitText(caption, Tints.Gray, 14.sp, 11.sp, FontWeight.Normal, Modifier.weight(1f, fill = false))
             }
             if (appIcon != null) {
@@ -767,7 +715,6 @@ private fun PayReady(title: String, caption: String?, appIcon: ImageBitmap?, s: 
     }
 }
 
-/** Оплата прошла: зелёный круг выпрыгивает, галочка прорисовывается, справа сумма — как «Готово» в Apple Pay. */
 @Composable
 private fun PayDone(n: Notice, s: IslandSettings, wideWidth: Dp) {
     val haptic = rememberHaptic()
@@ -792,17 +739,12 @@ private fun PayDone(n: Notice, s: IslandSettings, wideWidth: Dp) {
     }
 }
 
-/** Цвет «живой активности»: навигатор зелёный, такси жёлтое, доставка оранжевая. */
 fun liveTint(kind: LiveKind): Color = when (kind) {
     LiveKind.NAV -> Tints.Green
     LiveKind.RIDE -> Tints.Yellow
     LiveKind.DELIVERY -> Tints.Orange
 }
 
-/**
- * Главное из уведомления для узкой капсулы: расстояние до манёвра; у навигатора без расстояния —
- * время в пути, у такси и доставки — заголовок. Если показывать нечего, возвращает null.
- */
 fun liveShort(l: LiveInfo): String? = l.distance
     ?: if (l.kind == LiveKind.NAV) {
         l.eta?.substringAfterLast(" · ")?.takeIf { it.isNotBlank() }
@@ -810,7 +752,6 @@ fun liveShort(l: LiveInfo): String? = l.distance
         l.title.ifBlank { l.text }.take(18).takeIf { it.isNotBlank() }
     }
 
-/** Значок «живой активности»: стрелка манёвра, если известно куда ехать, иначе картинка из уведомления или значок приложения. */
 @Composable
 fun LiveGlyph(l: LiveInfo, size: Dp, tint: Color) {
     when {
@@ -820,7 +761,6 @@ fun LiveGlyph(l: LiveInfo, size: Dp, tint: Color) {
     }
 }
 
-/** Навигатор, такси или доставка в капсуле: значок приложения у левого края, главное — у правого. */
 @Composable
 private fun LiveCompact(l: LiveInfo, s: IslandSettings) {
     val h = activeHeight(s)
@@ -839,10 +779,6 @@ private fun LiveCompact(l: LiveInfo, s: IslandSettings) {
     )
 }
 
-/**
- * Широкая плашка при запуске навигатора, такси или доставки — как у iPhone и в ролике: стрелка и расстояние
- * слева, улица и время прибытия справа; потом остров сжимается в капсулу.
- */
 @Composable
 private fun LiveBanner(n: Notice, l: LiveInfo, s: IslandSettings, wideWidth: Dp) {
     val height = noticeHeight(s)
@@ -867,7 +803,6 @@ private fun LiveBanner(n: Notice, l: LiveInfo, s: IslandSettings, wideWidth: Dp)
                 Text(l.text, color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
             }
-            // На узкой плашке — коротко: «12:31 · 19 ч»; полностью — в раскрытом виде
             val shortEta = l.eta?.removePrefix("Прибытие в ")?.removePrefix("Arrive ")?.split(" · ")?.take(2)?.joinToString(" · ")
             if (shortEta != null) {
                 Text(shortEta, color = tint, fontSize = 13.sp, style = Digits, maxLines = 1)
@@ -876,10 +811,6 @@ private fun LiveBanner(n: Notice, l: LiveInfo, s: IslandSettings, wideWidth: Dp)
     }
 }
 
-/**
- * Входящий звонок, как на iPhone и в ролике: аватар, подпись с именем и две круглые кнопки в одну строку
- * посередине высоты; зелёная кнопка «дышит», пока звонят. Камера приходится между именем и кнопками.
- */
 @Composable
 private fun IncomingCall(c: CallInfo, s: IslandSettings, wideWidth: Dp) {
     val context = LocalContext.current
