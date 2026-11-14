@@ -38,6 +38,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.painter.rememberDrawablePainter
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.Canvas
@@ -144,6 +145,22 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             AnimatedVisibility(s.evLock && keyguard, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
                 Icon(Ios.lock, null, tint = Color.White, modifier = Modifier.padding(start = s.height.dp * 0.38f).size(s.height.dp * 0.46f))
             }
+        }
+
+        // НОВОЕ: иконка запущенного приложения
+        is Act.AppA -> Box(
+            Modifier.size(s.width.dp, s.height.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Image(
+                painter = rememberDrawablePainter(act.icon),
+                contentDescription = act.pkg,
+                modifier = Modifier
+                    .padding(start = s.height.dp * 0.38f)
+                    .size(s.height.dp * 0.55f)
+                    .clip(RoundedCornerShape(s.height.dp * 0.18f)),
+                contentScale = ContentScale.Crop,
+            )
         }
 
         is Act.MediaA -> MediaCompact(act.m, s)
