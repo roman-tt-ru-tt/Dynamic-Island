@@ -47,7 +47,5 @@ sealed class Act(val id: String, val transient: Boolean = false) {
         override val pkg: String? get() = a.pkg
     }
     /** Иконка запущенного приложения, когда в острове нет других активностей */
-    data class AppA(val pkg: String, val icon: Drawable) : Act("app") {
-        override val pkg: String get() = this.pkg
-    }
+    data class AppA(override val pkg: String, val icon: Drawable) : Act("app")
 }
