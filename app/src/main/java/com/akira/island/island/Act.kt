@@ -39,13 +39,16 @@ sealed class Act(val id: String, val transient: Boolean = false) {
         override val pkg: String get() = l.pkg
     }
     data class ChargingA(val b: BatteryInfo) : Act("charging")
+    
     /** Оплата телефоном: ждём терминал. Не раскрывается и не уходит в пузырь */
     data class PayA(val p: PayReady) : Act("pay", transient = true) {
         override val pkg: String get() = p.pkg
     }
+    
     data class AlarmA(val a: AlarmInfo) : Act("alarm") {
         override val pkg: String? get() = a.pkg
     }
+    
     /** Иконка запущенного приложения, когда в острове нет других активностей */
     data class AppA(override val pkg: String, val icon: Drawable) : Act("app")
 }
