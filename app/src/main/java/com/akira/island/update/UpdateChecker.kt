@@ -224,13 +224,10 @@ object UpdateChecker {
                             }
                         }
                     }
-                    // Связь оборвалась посреди файла — недокачанный APK установка не примет
                     if (total > 0 && done < total) error(tr("Скачано $done из $total байт", "Downloaded $done of $total bytes"))
                 } finally {
                     conn.disconnect()
                 }
-                // Ставим только сам остров: файл с другим приложением внутри не открываем.
-                // Подпись проверит установка Android — чужой ключ поверх острова она не поставит
                 if (context.packageManager.getPackageArchiveInfo(file.path, 0)?.packageName != context.packageName) {
                     file.delete()
                     error(tr("Файл обновления повреждён", "The update file is damaged"))
@@ -278,7 +275,6 @@ object UpdateChecker {
             setRequestProperty("User-Agent", "DynamicIsland-Android")
         }
         try {
-            // Релизов ещё нет
             if (conn.responseCode == 404) return null
             if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
             return parseRelease(conn.inputStream.bufferedReader().use { it.readText() })
@@ -287,7 +283,6 @@ object UpdateChecker {
         }
     }
 
-    /** Разбор ответа GitHub API `releases/latest`. */
     internal fun parseRelease(json: String): Release? {
         val o = Json.parseToJsonElement(json).jsonObject
         val tag = o["tag_name"]?.jsonPrimitive?.contentOrNull ?: return null
@@ -304,7 +299,6 @@ object UpdateChecker {
         )
     }
 
-    /** 1.10.0 новее 1.9.2: сравниваем по числам, а не по строкам. */
     internal fun isNewer(remote: String, local: String): Boolean {
         fun parts(v: String) = v.takeWhile { it.isDigit() || it == '.' }.split('.').map { it.toIntOrNull() ?: 0 }
         val r = parts(remote)
@@ -318,10 +312,6 @@ object UpdateChecker {
     }
 }
 
-/**
- * Описание релиза на двух языках («## 🇬🇧 English» и «## 🇷🇺 Русский») — строки на языке приложения.
- * Если нужного раздела нет, описание целиком.
- */
 fun localNotes(markdown: String): List<String> {
     val all = markdown.lines()
     val start = all.indexOfFirst { it.startsWith("## ") && (if (Lang.en) "English" in it else "Русский" in it) }
