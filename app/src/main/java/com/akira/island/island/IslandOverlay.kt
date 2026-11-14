@@ -113,16 +113,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sqrt
 
-/** Пример активности для подбора ширины: стрелка направо и «300 м». */
 private val WidthDemo = com.akira.island.core.LiveInfo(
     key = "width-demo", pkg = "", kind = com.akira.island.core.LiveKind.NAV, title = "", text = "", sub = "",
     icon = null, art = null, postTime = 0L, open = null, distance = tr("300 м", "300 m"), turn = com.akira.island.core.Turn.RIGHT,
 )
 
-/** Цвет острова на экране «Размер и положение»: его нужно спрятать под вырезом камеры. */
 val CalibrationRed = Color(0xFFFF6B6B)
-
-/** Запас вокруг острова в окне: под тень, «желе» и пузырь. */
 const val ISLAND_PAD_DP = 12
 
 private data class Frame(val act: Act, val expanded: Boolean) {
@@ -137,7 +133,6 @@ fun IslandOverlay(
 ) {
     val saved by SettingsRepo.state.collectAsState()
     val powerSave by IslandBus.powerSave.collectAsState()
-    // В энергосбережении Android с «Экономией заряда» остров обходится без живых эффектов
     val s = remember(saved, powerSave) { saved.forPowerSave(powerSave) }
     val media by IslandBus.media.collectAsState()
     val lyrics by IslandBus.lyrics.collectAsState()
@@ -158,6 +153,7 @@ fun IslandOverlay(
     val egg by IslandBus.egg.collectAsState()
     val payReady by IslandBus.payReady.collectAsState()
     val screenOn by IslandBus.screenOn.collectAsState()
+    
     var alarmNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(nextAlarm, screenOn) {
         val at = nextAlarm?.triggerAt ?: return@LaunchedEffect
@@ -323,10 +319,8 @@ fun IslandOverlay(
     LaunchedEffect(Unit) {
         IslandBus.commands.collect { cmd ->
             if (cmd == ServiceCommand.SCREENSHOT) {
-                // Если включена настройка и остров показывает иконку приложения (или музыку/навигацию)
                 if (s.screenshotPulse && (primary is Act.AppA || primary is Act.MediaA || primary is Act.LiveA)) {
-                    screenshotPulse.snapTo(1.35f) // Мгновенно увеличиваем
-                    // И плавно возвращаем обратно с пружинкой
+                    screenshotPulse.snapTo(1.35f)
                     screenshotPulse.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
                 }
             }
@@ -422,7 +416,7 @@ private fun IslandBody(
     lyrics: Lyrics?,
     battery: BatteryInfo,
     calibrating: Boolean,
-    screenshotPulse: Float, // НОВОЕ
+    screenshotPulse: Float,
     onBounds: (Rect) -> Unit,
 ) {
     val context = LocalContext.current
@@ -507,7 +501,6 @@ private fun IslandBody(
             .onGloballyPositioned { onBounds(it.boundsInWindow()) }
             .graphicsLayer {
                 val bump = Egg.bump() * PayFx.pop.floatValue
-                // НОВОЕ: умножаем на screenshotPulse, чтобы остров раздувался при скриншоте
                 scaleX = jellyX.value * (1f + 0.03f * pull.value) * bump * screenshotPulse
                 scaleY = jellyY.value * (1f + 0.08f * pull.value) * bump * screenshotPulse
                 translationX = shake.value.dp.toPx()
