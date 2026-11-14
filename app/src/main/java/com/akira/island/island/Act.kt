@@ -1,5 +1,6 @@
 package com.akira.island.island
 
+import android.graphics.drawable.Drawable
 import com.akira.island.core.AlarmInfo
 import com.akira.island.core.BatteryInfo
 import com.akira.island.core.CallInfo
@@ -44,5 +45,9 @@ sealed class Act(val id: String, val transient: Boolean = false) {
     }
     data class AlarmA(val a: AlarmInfo) : Act("alarm") {
         override val pkg: String? get() = a.pkg
+    }
+    /** Иконка запущенного приложения, когда в острове нет других активностей */
+    data class AppA(val pkg: String, val icon: Drawable) : Act("app") {
+        override val pkg: String get() = this.pkg
     }
 }
