@@ -100,10 +100,8 @@ data class IslandSettings(
     val cardCharging: Boolean = true,
     val cardCall: Boolean = true,
     val cardMessages: Boolean = true,
-    /** Показывать иконку приложения, в котором вы находитесь, когда остров пуст */
     val cardAppIcon: Boolean = true,
-    /** Окрашивать остров в акцентный цвет открытого приложения (как на iOS) */
-    val cardAppColor: Boolean = true,
+    val screenshotPulse: Boolean = true,
     
     val msgActions: Boolean = true,
     val cardLive: Boolean = true,
@@ -197,7 +195,6 @@ data class IslandSettings(
     // Поведение
     val hideIdle: Boolean = false,
     val hideInLandscape: Boolean = true,
-    /** Не переворачивать остров при повороте экрана */
     val keepUpright: Boolean = false,
     val hideWhenPlayerOpen: Boolean = true,
     val scheduleOn: Boolean = false,
