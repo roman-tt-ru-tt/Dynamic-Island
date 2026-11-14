@@ -6,6 +6,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FlashlightOn
 import androidx.compose.material.icons.rounded.HourglassEmpty
@@ -77,11 +78,14 @@ fun CardsScreen(onBack: () -> Unit, onInstruction: () -> Unit) {
             GroupToggle(Pos.Middle, Icons.Rounded.Downloading, tr("Индикатор прогресса", "Progress indicator"),
                 tr("Загрузки и отправка в Google Play, Telegram и других приложениях", "Downloads and uploads in Google Play, Telegram and other apps"),
                 s.cardProgress, color = Tile.Teal) { set { copy(cardProgress = it) } }
-            // НОВОЕ: переключатель иконки открытого приложения
-            GroupToggle(Pos.Last, Icons.Rounded.Apps, tr("Иконка открытого приложения", "Running app icon"),
+            GroupToggle(Pos.Middle, Icons.Rounded.Apps, tr("Иконка открытого приложения", "Running app icon"),
                 tr("Показывать иконку приложения, в котором вы находитесь, когда остров пуст",
                     "Show the icon of the app you're in when the island is idle"),
                 s.cardAppIcon, color = Tile.Blue) { set { copy(cardAppIcon = it) } }
+            GroupToggle(Pos.Last, Icons.Rounded.ColorLens, tr("Цвет приложения", "App color"),
+                tr("Окрашивать остров в акцентный цвет открытого приложения (как на iOS)",
+                    "Tint the island to match the app you're in (like on iOS)"),
+                s.cardAppColor, color = Tile.Pink) { set { copy(cardAppColor = it) } }
         }
 
         SectionHeader(tr("В дороге", "On the road"))
