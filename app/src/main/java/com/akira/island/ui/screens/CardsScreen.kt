@@ -5,7 +5,6 @@ import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FlashlightOn
@@ -77,14 +76,10 @@ fun CardsScreen(onBack: () -> Unit, onInstruction: () -> Unit) {
             GroupToggle(Pos.Middle, Icons.Rounded.Downloading, tr("Индикатор прогресса", "Progress indicator"),
                 tr("Загрузки и отправка в Google Play, Telegram и других приложениях", "Downloads and uploads in Google Play, Telegram and other apps"),
                 s.cardProgress, color = Tile.Teal) { set { copy(cardProgress = it) } }
-            GroupToggle(Pos.Middle, Icons.Rounded.Apps, tr("Иконка открытого приложения", "Running app icon"),
+            GroupToggle(Pos.Last, Icons.Rounded.Apps, tr("Иконка открытого приложения", "Running app icon"),
                 tr("Показывать иконку приложения, в котором вы находитесь, когда остров пуст",
                     "Show the icon of the app you're in when the island is idle"),
                 s.cardAppIcon, color = Tile.Blue) { set { copy(cardAppIcon = it) } }
-            GroupToggle(Pos.Last, Icons.Rounded.Bolt, tr("Увеличивать при скриншоте", "Pulse on screenshot"),
-                tr("Кратко увеличивать иконку, когда делаете снимок экрана (как на iOS)",
-                    "Briefly enlarge the icon when you take a screenshot (like on iOS)"),
-                s.screenshotPulse, color = Tile.Orange) { set { copy(screenshotPulse = it) } }
         }
 
         SectionHeader(tr("В дороге", "On the road"))
