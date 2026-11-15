@@ -2,20 +2,29 @@ package com.akira.island.ui.screens
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
@@ -31,12 +40,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.akira.island.core.AppLog
 import com.akira.island.core.tr
-import com.akira.island.ui.Page
 import com.akira.island.ui.Tile
 import com.akira.island.ui.Ui
 
@@ -44,11 +53,49 @@ import com.akira.island.ui.Ui
 fun LogsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val lines by AppLog.lines.collectAsState()
+    val scroll = rememberScrollState()
 
-    Page(tr("Логи", "Logs"), onBack,
-        subtitle = tr("Последние ${lines.size} записей. Нажмите «Скачать», чтобы отправить разработчику.",
-            "Last ${lines.size} entries. Tap “Download” to send to the developer."),
+    // Свой Column с прокруткой, без Page (чтобы не было двойного verticalScroll)
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(scroll)
+            .padding(horizontal = 16.dp),
     ) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        Spacer(Modifier.height(14.dp))
+
+        // Шапка
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(48.dp).clip(CircleShape).background(Ui.Card).clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Назад", "Back"), tint = Ui.Text)
+            }
+            Spacer(Modifier.width(18.dp))
+            Text(
+                tr("Логи", "Logs"),
+                color = Ui.Text,
+                fontSize = 26.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Text(
+            tr("Последние ${lines.size} записей. Нажмите «Скачать», чтобы отправить разработчику.",
+                "Last ${lines.size} entries. Tap “Download” to send to the developer."),
+            color = Ui.Sub.copy(alpha = 0.6f),
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(18.dp))
+
+        // Кнопки
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             ActionButton(tr("Скачать", "Download"), Icons.Rounded.Download, Tile.Green) {
                 val file = AppLog.file() ?: return@ActionButton
@@ -76,25 +123,25 @@ fun LogsScreen(onBack: () -> Unit) {
                 color = Ui.Sub, fontSize = 14.sp, modifier = Modifier.padding(16.dp),
             )
         } else {
-            // Оборачиваем в Column с verticalScroll, чтобы LazyColumn не падал
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                lines.forEach { line ->
-                    Text(
-                        line,
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Ui.Card)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                }
+            lines.forEach { line ->
+                Text(
+                    line,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Ui.Card)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
             }
         }
+
+        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 
@@ -102,8 +149,10 @@ fun LogsScreen(onBack: () -> Unit) {
 private fun ActionButton(text: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
     Row(
         Modifier
+            .weight(1f)
             .clip(CircleShape)
             .background(color)
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
