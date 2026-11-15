@@ -7,7 +7,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Системные разрешения -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -37,7 +36,6 @@
         android:theme="@style/Theme.Island"
         tools:targetApi="35">
 
-        <!-- Главная активность -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -48,14 +46,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Активность для теста горизонтальной ориентации -->
-        <activity
-            android:name=".ui.OrientationTestActivity"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.Island" />
-
-        <!-- Активность для "Поставь таймер" -->
         <activity
             android:name=".ui.SetTimerActivity"
             android:exported="true"
@@ -66,7 +56,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Прозрачная активность для включения экрана -->
         <activity
             android:name=".service.WakeActivity"
             android:exported="false"
@@ -74,7 +63,6 @@
             android:turnScreenOn="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- Служба спец. возможностей -->
         <service
             android:name=".service.IslandService"
             android:exported="true"
@@ -88,7 +76,6 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Служба доступа к уведомлениям -->
         <service
             android:name=".service.NotifListener"
             android:exported="true"
@@ -98,7 +85,6 @@
             </intent-filter>
         </service>
 
-        <!-- Плитка в шторке -->
         <service
             android:name=".service.IslandTile"
             android:exported="true"
@@ -110,7 +96,6 @@
             </intent-filter>
         </service>
 
-        <!-- Служба "Не выгружать остров" -->
         <service
             android:name=".service.KeepAliveService"
             android:enabled="true"
@@ -118,7 +103,6 @@
             android:foregroundServiceType="specialUse"
             android:stopWithTask="false" />
 
-        <!-- Провайдер для установки APK -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
