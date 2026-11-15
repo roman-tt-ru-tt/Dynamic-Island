@@ -1,15 +1,32 @@
 package com.akira.island.ui.screens
 
+import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FlashlightOn
 import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.LightMode
@@ -24,14 +41,27 @@ import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
 import com.akira.island.data.QuickAction
@@ -48,8 +78,10 @@ import com.akira.island.ui.Tile
 
 @Composable
 fun BehaviorScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     val s by SettingsRepo.state.collectAsState()
     var collapseDialog by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
 
     Page(tr("Поведение", "Behavior"), onBack) {
         SectionHeader(tr("Когда показывать", "When to show"))
@@ -97,13 +129,48 @@ fun BehaviorScreen(onBack: () -> Unit) {
                 tr("Часы, заряд и кнопки ниже. Выключено — нажатие ничего не делает",
                     "Clock, battery and the buttons below. Off — tapping does nothing"),
                 s.idleExpand, color = Tile.Blue) { v -> SettingsRepo.update { copy(idleExpand = v) } }
+            
             if (s.idleExpand) {
+                // Стандартные действия
                 QuickAction.entries.forEachIndexed { i, a ->
                     GroupToggle(if (i == QuickAction.entries.lastIndex && s.customQuickApps.isEmpty()) Pos.Last else Pos.Middle, a.settingsIcon, a.title,
                         a.hint, a in s.quickActions, color = Tile.Orange) { v ->
                         SettingsRepo.update { copy(quickActions = QuickAction.entries.filter { if (it == a) v else it in quickActions }) }
                     }
                 }
+                
+                // Свои приложения
+                if (s.customQuickApps.isNotEmpty()) {
+                    s.customQuickApps.forEachIndexed { i, pkg ->
+                        val appName = remember(pkg) {
+                            runCatching {
+                                val pm = context.packageManager
+                                pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+                            }.getOrDefault(pkg)
+                        }
+                        
+                        GroupItem(
+                            if (i == s.customQuickApps.lastIndex) Pos.Middle else Pos.Middle,
+                            Icons.Rounded.Apps,
+                            appName,
+                            tr("Открыть приложение из острова", "Open app from the island"),
+                            color = Tile.Blue,
+                            onClick = { SettingsRepo.update { copy(customQuickApps = customQuickApps - pkg) } }
+                        ) {
+                            Icon(Icons.Rounded.Close, null, tint = Tile.Red)
+                        }
+                    }
+                }
+
+                // Кнопка добавления
+                GroupItem(
+                    if (s.customQuickApps.isEmpty()) Pos.Last else Pos.Last,
+                    Icons.Rounded.Add,
+                    tr("Добавить приложение", "Add app"),
+                    tr("TikTok, YouTube и другие", "TikTok, YouTube, etc."),
+                    color = Tile.Green,
+                    onClick = { showAppPicker = true }
+                )
             }
         }
 
@@ -123,6 +190,104 @@ fun BehaviorScreen(onBack: () -> Unit) {
         ChoiceDialog(tr("Сворачивать раскрытый остров", "Collapse the expanded island"), listOf(0, 5, 10, 20, 30), s.autoCollapseSec, ::collapseLabel,
             { v -> SettingsRepo.update { copy(autoCollapseSec = v) } }) { collapseDialog = false }
     }
+
+    if (showAppPicker) {
+        AppPickerDialog(
+            installed = s.customQuickApps,
+            onPick = { pkg ->
+                if (!s.customQuickApps.contains(pkg)) {
+                    SettingsRepo.update { copy(customQuickApps = customQuickApps + pkg) }
+                }
+                showAppPicker = false
+            },
+            onDismiss = { showAppPicker = false }
+        )
+    }
+}
+
+@Composable
+private fun AppPickerDialog(
+    installed: List<String>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    
+    val apps = remember {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName }
+            .distinct()
+            .filter { it != context.packageName }
+            .sortedBy { pkg ->
+                runCatching {
+                    pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString().lowercase()
+                }.getOrDefault(pkg)
+            }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Выберите приложение", "Choose an app")) },
+        text = {
+            if (apps.isEmpty()) {
+                Text(tr("Нет установленных приложений", "No apps installed"))
+            } else {
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                    items(apps) { pkg ->
+                        val label = remember(pkg) {
+                            runCatching {
+                                val pm = context.packageManager
+                                pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+                            }.getOrDefault(pkg)
+                        }
+                        val icon = remember(pkg) {
+                            runCatching {
+                                context.packageManager.getApplicationIcon(pkg).toBitmap(48, 48).asImageBitmap()
+                            }.getOrNull()
+                        }
+                        val added = pkg in installed
+                        
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !added) { onPick(pkg) }
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (icon != null) {
+                                Image(icon, null, Modifier.size(36.dp).clip(CircleShape))
+                            } else {
+                                Box(
+                                    Modifier.size(36.dp).clip(CircleShape).background(Tile.Blue),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(label.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                label,
+                                color = if (added) Color.Gray else Color.White,
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                            )
+                            if (added) {
+                                Spacer(Modifier.weight(1f))
+                                Icon(Icons.Rounded.Close, null, tint = Color.Gray)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(tr("Закрыть", "Close"))
+            }
+        }
+    )
 }
 
 private fun hourLabel(h: Int) = "%d:00".format(h)
