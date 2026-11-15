@@ -4,7 +4,6 @@ import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Rect
 import android.os.Build
 import android.provider.Settings
 import android.telecom.TelecomManager
@@ -14,7 +13,6 @@ import android.media.session.MediaController
 import android.media.session.PlaybackState
 import android.os.SystemClock
 
-/** Команды, которые капсула отдаёт системе: плеер, таймер, фонарик, громкость. */
 object Controls {
     @Volatile
     var mediaController: MediaController? = null
@@ -22,7 +20,6 @@ object Controls {
     var torchOn: () -> Unit = {}
     var torchOff: () -> Unit = {}
     var torchLevel: (Int) -> Unit = {}
-
     var dismissNotification: (String) -> Unit = {}
 
     fun expand(id: String) {
@@ -45,17 +42,9 @@ object Controls {
         else c.transportControls.play()
     }
 
-    fun next() {
-        mediaController?.transportControls?.skipToNext()
-    }
-
-    fun prev() {
-        mediaController?.transportControls?.skipToPrevious()
-    }
-
-    fun seekTo(ms: Long) {
-        mediaController?.transportControls?.seekTo(ms)
-    }
+    fun next() { mediaController?.transportControls?.skipToNext() }
+    fun prev() { mediaController?.transportControls?.skipToPrevious() }
+    fun seekTo(ms: Long) { mediaController?.transportControls?.seekTo(ms) }
 
     fun startTimer(minutes: Int) {
         val total = minutes.coerceIn(1, 99) * 60_000L
@@ -85,9 +74,7 @@ object Controls {
         if (IslandBus.focus.value == "timer") collapse()
     }
 
-    fun startStopwatch() {
-        IslandBus.stopwatch.value = StopwatchState(SystemClock.elapsedRealtime(), 0)
-    }
+    fun startStopwatch() { IslandBus.stopwatch.value = StopwatchState(SystemClock.elapsedRealtime(), 0) }
 
     fun toggleStopwatch() {
         val w = IslandBus.stopwatch.value ?: return
@@ -105,37 +92,6 @@ object Controls {
         val intent = context.packageManager.getLaunchIntentForPackage(pkg) ?: return
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         runCatching { context.startActivity(intent) }
-        collapse()
-    }
-
-    /** Проверяет, поддерживает ли приложение PiP, через флаг ApplicationInfo (числовое значение 0x00400000). */
-    fun supportsPip(context: Context, pkg: String): Boolean {
-        return runCatching {
-            val pm = context.packageManager
-            val info = pm.getApplicationInfo(pkg, 0)
-            // FLAG_SUPPORTS_PICTURE_IN_PICTURE = 0x00400000
-            (info.flags and 0x00400000) != 0
-        }.getOrDefault(false)
-    }
-
-    fun openInPip(context: Context, pkg: String) {
-        if (!supportsPip(context, pkg)) {
-            openApp(context, pkg)
-            return
-        }
-        
-        val pm = context.packageManager
-        val intent = pm.getLaunchIntentForPackage(pkg) ?: return
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val options = ActivityOptions.makeBasic()
-            runCatching { options.setLaunchBounds(Rect(0, 0, 400, 400)) }
-            runCatching { context.startActivity(intent, options.toBundle()) }
-                .onFailure { openApp(context, pkg) }
-        } else {
-            openApp(context, pkg)
-        }
         collapse()
     }
 
@@ -198,21 +154,10 @@ object Controls {
         if (dialer.isNotEmpty()) openApp(context, dialer)
     }
 
-    fun hideIncomingCall() {
-        IslandBus.callHidden.value = true
-    }
-
-    fun screenshot() {
-        IslandBus.commands.tryEmit(ServiceCommand.SCREENSHOT)
-    }
-
-    fun lockScreen() {
-        IslandBus.commands.tryEmit(ServiceCommand.LOCK)
-    }
-
-    fun turnOffIsland() {
-        IslandBus.commands.tryEmit(ServiceCommand.TURN_OFF)
-    }
+    fun hideIncomingCall() { IslandBus.callHidden.value = true }
+    fun screenshot() { IslandBus.commands.tryEmit(ServiceCommand.SCREENSHOT) }
+    fun lockScreen() { IslandBus.commands.tryEmit(ServiceCommand.LOCK) }
+    fun turnOffIsland() { IslandBus.commands.tryEmit(ServiceCommand.TURN_OFF) }
 
     fun openCamera(context: Context) {
         runCatching {
