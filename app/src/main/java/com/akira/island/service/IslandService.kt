@@ -30,6 +30,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import com.akira.island.core.AppLog
 import com.akira.island.core.Controls
 import com.akira.island.core.IslandBus
 import com.akira.island.core.ServiceCommand
@@ -121,14 +122,10 @@ class IslandService : AccessibilityService() {
         updateDisplayHeight()
     }
 
-    // ИСПОЛЬЗУЕМ TYPE_APPLICATION_OVERLAY ВМЕСТО TYPE_ACCESSIBILITY_OVERLAY
     private val displayParams = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
-            WindowManager.LayoutParams.TYPE_PHONE,
+        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -144,10 +141,7 @@ class IslandService : AccessibilityService() {
     private val touchParams = WindowManager.LayoutParams(
         1,
         1,
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
-            WindowManager.LayoutParams.TYPE_PHONE,
+        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
@@ -181,6 +175,7 @@ class IslandService : AccessibilityService() {
         payReader = PayScreenReader(this, scope)
         alarmMonitor = AlarmMonitor(this).also { it.start() }
         IslandBus.serviceRunning.value = true
+        AppLog.log("Service", "Island service connected")
 
         scope.launch {
             IslandBus.calls.map { calls -> calls.values.any { it.incoming } }.distinctUntilChanged()
@@ -312,15 +307,6 @@ class IslandService : AccessibilityService() {
         owner.create()
         owner.attach(drawRoot)
         displayParams.height = tallHeight()
-        
-        // Важно: проверяем, есть ли разрешение "Поверх других приложений"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
-            // Если разрешения нет, покажем уведомление или откроем настройки
-            // Но мы не можем открыть настройки из службы, поэтому пользователь должен сам
-            // Логируем, что окно не будет показано
-            android.util.Log.w("IslandService", "No overlay permission!")
-        }
-        
         runCatching { wm?.addView(drawRoot, displayParams) }.onSuccess { display = drawRoot }
 
         val touchRoot = TouchRoot(this, { display }, ::onOutsideTouch)
@@ -342,44 +328,17 @@ class IslandService : AccessibilityService() {
     }.getOrDefault(true)
 
     private fun applySettings(s: IslandSettings, landscape: Boolean) {
-        val effectiveLandscape = if (s.keepUpright) false else landscape
-        visible = s.enabled && !(s.hideInLandscape && effectiveLandscape) && !IslandBus.offSchedule.value
+        visible = s.enabled && !(s.hideInLandscape && landscape) && !IslandBus.offSchedule.value
         display?.visibility = if (visible) View.VISIBLE else View.GONE
         owner.setActive(visible)
         if (!visible) Controls.collapse()
 
-        applyRotationFix(s, landscape)
-        
-        display?.let { v -> 
-            runCatching { wm?.updateViewLayout(v, displayParams) }
-        }
-        
         val y = dp(s.topOffset - ISLAND_PAD_DP)
         if (displayParams.y != y) {
             displayParams.y = y
             display?.let { v -> runCatching { wm?.updateViewLayout(v, displayParams) } }
         }
         updateTouchWindow()
-    }
-
-    private fun applyRotationFix(s: IslandSettings, landscape: Boolean) {
-        val view = display ?: return
-        if (s.keepUpright && landscape) {
-            val metrics = resources.displayMetrics
-            val screenWidth = metrics.widthPixels.toFloat()
-            
-            view.rotation = -90f
-            view.pivotX = 0f
-            view.pivotY = 0f
-            view.translationX = screenWidth - dp(ISLAND_PAD_DP).toFloat()
-            view.translationY = dp(ISLAND_PAD_DP).toFloat()
-        } else {
-            view.rotation = 0f
-            view.translationX = 0f
-            view.translationY = 0f
-            view.pivotX = 0f
-            view.pivotY = 0f
-        }
     }
 
     private fun screenshotWithoutIsland() {
@@ -592,17 +551,6 @@ class IslandService : AccessibilityService() {
         super.onConfigurationChanged(newConfig)
         IslandBus.landscape.value = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
         applySettings(SettingsRepo.current, IslandBus.landscape.value)
-        
-        handler.postDelayed({
-            display?.let { v ->
-                runCatching { wm?.removeView(v) }
-                runCatching { wm?.addView(v, displayParams) }
-            }
-            touch?.let { t ->
-                runCatching { wm?.removeView(t) }
-                runCatching { wm?.addView(t, touchParams) }
-            }
-        }, 150)
     }
 
     override fun onDestroy() {
