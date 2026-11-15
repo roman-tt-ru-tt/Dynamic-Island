@@ -1,7 +1,6 @@
 package com.akira.island.island
 
 import android.content.Context
-import android.media.MediaPlayer
 import android.os.Build
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
@@ -92,14 +91,12 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.akira.island.R
 import com.akira.island.core.BatteryInfo
 import com.akira.island.core.ChronoInfo
 import com.akira.island.core.Controls
 import com.akira.island.core.IslandBus
 import com.akira.island.core.Lyrics
 import com.akira.island.core.NoticeStyle
-import com.akira.island.core.ServiceCommand
 import com.akira.island.core.Tints
 import com.akira.island.core.tr
 import com.akira.island.data.Elasticity
@@ -316,20 +313,13 @@ fun IslandOverlay(
     val onBubble = remember(onBubbleBounds) { { r: Rect -> onBubbleBounds(if (hiddenNow.value) Rect.Zero else r) } }
     val eggOn = egg && !calibrating
 
-    // Анимация раздувания и звук
+    // НОВОЕ: Анимация "раздувания" при скриншоте
     val screenshotPulse = remember { Animatable(1f) }
-    var player by remember { mutableStateOf<MediaPlayer?>(null) }
-
     LaunchedEffect(Unit) {
         IslandBus.commands.collect { cmd ->
-            if (cmd == ServiceCommand.SCREENSHOT) {
+            if (cmd == com.akira.island.core.ServiceCommand.SCREENSHOT) {
                 if (s.screenshotPulse) {
                     screenshotPulse.snapTo(1.35f)
-                    runCatching {
-                        player?.release()
-                        player = MediaPlayer.create(context, R.raw.screenshot)
-                        player?.start()
-                    }
                     screenshotPulse.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
                 }
             }
@@ -446,7 +436,7 @@ private fun IslandBody(
             primary.n.style == NoticeStyle.LIVE || primary.n.style == NoticeStyle.ALARM || primary.n.style == NoticeStyle.SENT) -> noticeHeight(s) / 2
         primary is Act.PayA -> noticeHeight(s) / 2
         primary is Act.CallA && primary.c.incoming -> callHeight(s) / 2
-        primary is Act.AppA -> h / 2 // Круглая форма для AppA
+        primary is Act.AppA -> h / 2
         primary is Act.Idle -> h / 2
         else -> activeHeight(s) / 2
     }
@@ -609,10 +599,25 @@ private fun IslandBody(
                                 haptic()
                                 Controls.collapse()
                             }
+                            // Смахнуть уведомление вверх
                             !isExpanded && vertical && dy < -threshold && act is Act.NoticeA -> {
                                 IslandBus.notice.value = null
                             }
+                            // НОВОЕ: Смахнуть уведомление вправо (убирает из острова и шторки)
+                            !isExpanded && !vertical && dx > threshold && act is Act.NoticeA -> {
+                                haptic()
+                                act.n.message?.key?.let { key -> Controls.dismissNotification(key) }
+                                IslandBus.notice.value = null
+                            }
+                            // НОВОЕ: Смахнуть уведомление влево
+                            !isExpanded && !vertical && dx < -threshold && act is Act.NoticeA -> {
+                                haptic()
+                                act.n.message?.key?.let { key -> Controls.dismissNotification(key) }
+                                IslandBus.notice.value = null
+                            }
+                            // Подсказку оплаты тоже можно смахнуть
                             !isExpanded && vertical && dy < -threshold && act is Act.PayA -> PayMonitor.clearReady()
+                            // И входящий звонок, если не хочется отвечать: звонок идёт дальше, но остров свободен
                             !isExpanded && vertical && dy < -threshold && act is Act.CallA && act.c.incoming -> {
                                 haptic()
                                 Controls.hideIncomingCall()
