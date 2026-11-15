@@ -81,6 +81,7 @@ import com.akira.island.ui.screens.HomeScreen
 import com.akira.island.ui.screens.IdeaScreen
 import com.akira.island.ui.screens.InstructionScreen
 import com.akira.island.ui.screens.KeepAliveScreen
+import com.akira.island.ui.screens.LogsScreen
 import com.akira.island.ui.screens.LookScreen
 import com.akira.island.ui.screens.LyricsScreen
 import com.akira.island.ui.screens.NotificationsScreen
@@ -93,7 +94,7 @@ import com.akira.island.update.UpdateChecker
 
 enum class Screen {
     CARDS, EVENTS, GESTURES, LYRICS, SIZE, COLORS, INSTRUCTION, ABOUT, DIAG, LOOK, ANIM, EFFECTS, BANNERS,
-    PERMISSIONS, TESTS, NOTIFICATIONS, BEHAVIOR, PAYDIAG, KEEPALIVE, BANKS,
+    PERMISSIONS, TESTS, NOTIFICATIONS, BEHAVIOR, PAYDIAG, KEEPALIVE, BANKS, LOGS,
 }
 
 class MainActivity : ComponentActivity() {
@@ -176,6 +177,7 @@ private fun AppRoot() {
                     Screen.TESTS.name -> TestsScreen(back)
                     Screen.NOTIFICATIONS.name -> NotificationsScreen(back)
                     Screen.BEHAVIOR.name -> BehaviorScreen(back)
+                    Screen.LOGS.name -> LogsScreen(back)
                 }
             }
 
@@ -235,7 +237,6 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/** Подпись вкладки: если не влезает (крупный шрифт Android), чуть уменьшается, а не обрезается. */
 @Composable
 private fun TabLabel(text: String, color: androidx.compose.ui.graphics.Color, bold: Boolean) {
     val measurer = rememberTextMeasurer()
