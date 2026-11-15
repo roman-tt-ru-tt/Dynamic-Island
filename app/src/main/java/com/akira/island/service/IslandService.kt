@@ -336,6 +336,11 @@ class IslandService : AccessibilityService() {
         // Поворачиваем контент, чтобы остров оставался вертикальным
         applyRotationFix(s, landscape)
         
+        // Принудительно обновляем окно (это заставит его пересчитать координаты после поворота)
+        display?.let { v -> 
+            runCatching { wm?.updateViewLayout(v, displayParams) }
+        }
+        
         val y = dp(s.topOffset - ISLAND_PAD_DP)
         if (displayParams.y != y) {
             displayParams.y = y
@@ -347,15 +352,14 @@ class IslandService : AccessibilityService() {
     private fun applyRotationFix(s: IslandSettings, landscape: Boolean) {
         val view = display ?: return
         if (s.keepUpright && landscape) {
-            // Система повернула экран, а мы компенсируем это обратным поворотом
             val metrics = resources.displayMetrics
             val screenWidth = metrics.widthPixels.toFloat()
             
-            // Поворачиваем на -90 (против часовой)
+            // Поворачиваем окно на -90 (компенсация поворота системы)
             view.rotation = -90f
             view.pivotX = 0f
             view.pivotY = 0f
-            // Смещаем окно так, чтобы оно осталось в верхнем левом углу
+            // Смещаем так, чтобы окно оказалось в верхней части экрана (после поворота оно уйдёт вправо)
             view.translationX = screenWidth - dp(ISLAND_PAD_DP).toFloat()
             view.translationY = dp(ISLAND_PAD_DP).toFloat()
         } else {
@@ -577,6 +581,13 @@ class IslandService : AccessibilityService() {
         super.onConfigurationChanged(newConfig)
         IslandBus.landscape.value = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
         applySettings(SettingsRepo.current, IslandBus.landscape.value)
+        // Принудительно пересоздаём окно, чтобы оно пересчитало координаты
+        handler.postDelayed({
+            display?.let { v ->
+                runCatching { wm?.removeView(v) }
+                runCatching { wm?.addView(v, displayParams) }
+            }
+        }, 100)
     }
 
     override fun onDestroy() {
