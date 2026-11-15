@@ -55,7 +55,6 @@ fun LogsScreen(onBack: () -> Unit) {
     val lines by AppLog.lines.collectAsState()
     val scroll = rememberScrollState()
 
-    // Свой Column с прокруткой, без Page (чтобы не было двойного verticalScroll)
     Column(
         Modifier
             .fillMaxSize()
@@ -65,7 +64,6 @@ fun LogsScreen(onBack: () -> Unit) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Spacer(Modifier.height(14.dp))
 
-        // Шапка
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(48.dp).clip(CircleShape).background(Ui.Card).clickable(onClick = onBack),
@@ -95,9 +93,13 @@ fun LogsScreen(onBack: () -> Unit) {
         )
         Spacer(Modifier.height(18.dp))
 
-        // Кнопки
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            ActionButton(tr("Скачать", "Download"), Icons.Rounded.Download, Tile.Green) {
+            ActionButton(
+                text = tr("Скачать", "Download"),
+                icon = Icons.Rounded.Download,
+                color = Tile.Green,
+                modifier = Modifier.weight(1f),
+            ) {
                 val file = AppLog.file() ?: return@ActionButton
                 runCatching {
                     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -109,7 +111,12 @@ fun LogsScreen(onBack: () -> Unit) {
                     context.startActivity(Intent.createChooser(intent, tr("Поделиться логами", "Share logs")))
                 }
             }
-            ActionButton(tr("Очистить", "Clear"), Icons.Rounded.Delete, Tile.Red) {
+            ActionButton(
+                text = tr("Очистить", "Clear"),
+                icon = Icons.Rounded.Delete,
+                color = Tile.Red,
+                modifier = Modifier.weight(1f),
+            ) {
                 AppLog.clear()
             }
         }
@@ -146,10 +153,15 @@ fun LogsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ActionButton(text: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
+private fun ActionButton(
+    text: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Row(
-        Modifier
-            .weight(1f)
+        modifier
             .clip(CircleShape)
             .background(color)
             .clickable(onClick = onClick)
