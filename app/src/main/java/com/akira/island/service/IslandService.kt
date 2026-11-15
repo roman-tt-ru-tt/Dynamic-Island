@@ -121,10 +121,14 @@ class IslandService : AccessibilityService() {
         updateDisplayHeight()
     }
 
+    // ИСПОЛЬЗУЕМ TYPE_APPLICATION_OVERLAY ВМЕСТО TYPE_ACCESSIBILITY_OVERLAY
     private val displayParams = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            WindowManager.LayoutParams.TYPE_PHONE,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -140,7 +144,10 @@ class IslandService : AccessibilityService() {
     private val touchParams = WindowManager.LayoutParams(
         1,
         1,
-        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            WindowManager.LayoutParams.TYPE_PHONE,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
@@ -305,6 +312,15 @@ class IslandService : AccessibilityService() {
         owner.create()
         owner.attach(drawRoot)
         displayParams.height = tallHeight()
+        
+        // Важно: проверяем, есть ли разрешение "Поверх других приложений"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+            // Если разрешения нет, покажем уведомление или откроем настройки
+            // Но мы не можем открыть настройки из службы, поэтому пользователь должен сам
+            // Логируем, что окно не будет показано
+            android.util.Log.w("IslandService", "No overlay permission!")
+        }
+        
         runCatching { wm?.addView(drawRoot, displayParams) }.onSuccess { display = drawRoot }
 
         val touchRoot = TouchRoot(this, { display }, ::onOutsideTouch)
@@ -326,17 +342,14 @@ class IslandService : AccessibilityService() {
     }.getOrDefault(true)
 
     private fun applySettings(s: IslandSettings, landscape: Boolean) {
-        // ВАЖНО: если "Не переворачивать" включено, мы НЕ скрываем остров в горизонтальном режиме
         val effectiveLandscape = if (s.keepUpright) false else landscape
         visible = s.enabled && !(s.hideInLandscape && effectiveLandscape) && !IslandBus.offSchedule.value
         display?.visibility = if (visible) View.VISIBLE else View.GONE
         owner.setActive(visible)
         if (!visible) Controls.collapse()
 
-        // Поворачиваем контент, чтобы остров оставался вертикальным
         applyRotationFix(s, landscape)
         
-        // Принудительно обновляем окно (это заставит его пересчитать координаты после поворота)
         display?.let { v -> 
             runCatching { wm?.updateViewLayout(v, displayParams) }
         }
@@ -355,11 +368,9 @@ class IslandService : AccessibilityService() {
             val metrics = resources.displayMetrics
             val screenWidth = metrics.widthPixels.toFloat()
             
-            // Поворачиваем окно на -90 (компенсация поворота системы)
             view.rotation = -90f
             view.pivotX = 0f
             view.pivotY = 0f
-            // Смещаем так, чтобы окно оказалось в верхней части экрана (после поворота оно уйдёт вправо)
             view.translationX = screenWidth - dp(ISLAND_PAD_DP).toFloat()
             view.translationY = dp(ISLAND_PAD_DP).toFloat()
         } else {
@@ -581,13 +592,17 @@ class IslandService : AccessibilityService() {
         super.onConfigurationChanged(newConfig)
         IslandBus.landscape.value = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
         applySettings(SettingsRepo.current, IslandBus.landscape.value)
-        // Принудительно пересоздаём окно, чтобы оно пересчитало координаты
+        
         handler.postDelayed({
             display?.let { v ->
                 runCatching { wm?.removeView(v) }
                 runCatching { wm?.addView(v, displayParams) }
             }
-        }, 100)
+            touch?.let { t ->
+                runCatching { wm?.removeView(t) }
+                runCatching { wm?.addView(t, touchParams) }
+            }
+        }, 150)
     }
 
     override fun onDestroy() {
