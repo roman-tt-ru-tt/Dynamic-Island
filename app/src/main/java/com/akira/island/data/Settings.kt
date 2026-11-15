@@ -53,14 +53,21 @@ enum class TapAction(private val ru: String, private val en: String) {
 }
 
 @Serializable
-enum class QuickAction(private val ru: String, private val en: String, private val shortRu: String, private val shortEn: String) {
+enum class QuickAction(
+    private val ru: String,
+    private val en: String,
+    private val shortRu: String,
+    private val shortEn: String,
+) {
     TIMER("Таймер", "Timer", "Таймер", "Timer"),
     STOPWATCH("Секундомер", "Stopwatch", "Секундомер", "Stopwatch"),
     FLASHLIGHT("Фонарик", "Flashlight", "Фонарик", "Flashlight"),
     SCREENSHOT("Скриншот без острова", "Screenshot without the island", "Скриншот", "Screenshot"),
     CAMERA("Камера", "Camera", "Камера", "Camera"),
     LOCK("Заблокировать экран", "Lock the screen", "Блокировка", "Lock"),
+    SILENT("Беззвучный режим", "Silent mode", "Без звука", "Silent"),
     ;
+
     val title: String get() = tr(ru, en)
     val short: String get() = tr(shortRu, shortEn)
 }
@@ -101,7 +108,8 @@ data class IslandSettings(
     val cardCall: Boolean = true,
     val cardMessages: Boolean = true,
     val cardAppIcon: Boolean = true,
-    
+    val msgInIsland: Boolean = true,
+
     val msgActions: Boolean = true,
     val cardLive: Boolean = true,
     val cardAlarm: Boolean = true,
@@ -205,10 +213,11 @@ data class IslandSettings(
     val idleExpand: Boolean = true,
     val quickActions: List<QuickAction> = listOf(QuickAction.TIMER, QuickAction.STOPWATCH, QuickAction.FLASHLIGHT),
     val customQuickApps: List<String> = emptyList(),
+    /** Порядок кнопок и приложений в раскрытом острове: "action:SILENT", "app:com.tiktok" */
+    val quickOrder: List<String> = emptyList(),
     val keepAlive: Boolean = false,
     val msgLines: Int = 3,
     val msgInApp: Boolean = false,
-    val msgInIsland: Boolean = true,
     val msgChannels: Map<String, String> = emptyMap(),
     val bannerHintHidden: Boolean = false,
 ) {
