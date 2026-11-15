@@ -331,7 +331,7 @@ class IslandService : AccessibilityService() {
         owner.setActive(visible)
         if (!visible) Controls.collapse()
 
-        // Применяем поворот контента
+        // Применяем фиксацию ориентации через View
         applyRotationFix(s, landscape)
         
         val y = dp(s.topOffset - ISLAND_PAD_DP)
@@ -344,10 +344,27 @@ class IslandService : AccessibilityService() {
 
     private fun applyRotationFix(s: IslandSettings, landscape: Boolean) {
         val view = display ?: return
-        // Если включено "Не переворачивать" и экран горизонтальный, крутим окно обратно
-        val rotation = if (s.keepUpright && landscape) 90f else 0f
-        if (view.rotation != rotation) {
-            view.rotation = rotation
+        if (s.keepUpright && landscape) {
+            // Получаем размеры экрана
+            val metrics = resources.displayMetrics
+            val screenWidth = metrics.widthPixels.toFloat()
+            val screenHeight = metrics.heightPixels.toFloat()
+            
+            // Окно поворачиваем на -90 (против часовой), чтобы оно было вертикальным
+            view.rotation = -90f
+            // Смещаем окно: так как оно крутится вокруг левого верхнего угла,
+            // нам нужно сдвинуть его вправо на ширину и вверх (или вниз) - проще всего сделать pivot
+            view.pivotX = 0f
+            view.pivotY = 0f
+            // Сдвигаем: после поворота на -90 левый верхний угол должен оказаться в (screenWidth, 0)
+            view.translationX = screenWidth - dp(ISLAND_PAD_DP)
+            view.translationY = dp(ISLAND_PAD_DP)
+        } else {
+            view.rotation = 0f
+            view.translationX = 0f
+            view.translationY = 0f
+            view.pivotX = 0f
+            view.pivotY = 0f
         }
     }
 
