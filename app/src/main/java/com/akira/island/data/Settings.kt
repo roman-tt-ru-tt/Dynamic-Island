@@ -196,7 +196,7 @@ data class IslandSettings(
 
     // Поведение
     val hideIdle: Boolean = false,
-    val hideInLandscape: Boolean = true,
+    val hideInLandscape: Boolean = false,
     val keepUpright: Boolean = false,
     val hideWhenPlayerOpen: Boolean = true,
     val scheduleOn: Boolean = false,
