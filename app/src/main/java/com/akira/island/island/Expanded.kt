@@ -3,7 +3,6 @@
 package com.akira.island.island
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedContent
@@ -730,10 +729,7 @@ private fun AppQuickButton(pkg: String, context: Context, modifier: Modifier) {
         runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
     }
     val hasPip = remember(pkg) {
-        runCatching {
-            val info = context.packageManager.getApplicationInfo(pkg, 0)
-            (info.flags and ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
-        }.getOrDefault(false)
+        Controls.supportsPip(context, pkg)
     }
     val haptic = rememberHaptic()
     
@@ -801,4 +797,4 @@ private fun QuickButton(a: QuickAction, context: Context, modifier: Modifier) {
             QuickAction.TIMER -> Controls.startTimer(SettingsRepo.current.timerMinutes)
         }
     }
-}
+} 
