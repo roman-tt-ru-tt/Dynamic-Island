@@ -326,12 +326,14 @@ class IslandService : AccessibilityService() {
     }.getOrDefault(true)
 
     private fun applySettings(s: IslandSettings, landscape: Boolean) {
-        visible = s.enabled && !(s.hideInLandscape && landscape) && !IslandBus.offSchedule.value
+        // ВАЖНО: если "Не переворачивать" включено, мы НЕ скрываем остров в горизонтальном режиме
+        val effectiveLandscape = if (s.keepUpright) false else landscape
+        visible = s.enabled && !(s.hideInLandscape && effectiveLandscape) && !IslandBus.offSchedule.value
         display?.visibility = if (visible) View.VISIBLE else View.GONE
         owner.setActive(visible)
         if (!visible) Controls.collapse()
 
-        // Применяем фиксацию ориентации через View
+        // Поворачиваем контент, чтобы остров оставался вертикальным
         applyRotationFix(s, landscape)
         
         val y = dp(s.topOffset - ISLAND_PAD_DP)
@@ -345,12 +347,15 @@ class IslandService : AccessibilityService() {
     private fun applyRotationFix(s: IslandSettings, landscape: Boolean) {
         val view = display ?: return
         if (s.keepUpright && landscape) {
+            // Система повернула экран, а мы компенсируем это обратным поворотом
             val metrics = resources.displayMetrics
             val screenWidth = metrics.widthPixels.toFloat()
             
+            // Поворачиваем на -90 (против часовой)
             view.rotation = -90f
             view.pivotX = 0f
             view.pivotY = 0f
+            // Смещаем окно так, чтобы оно осталось в верхнем левом углу
             view.translationX = screenWidth - dp(ISLAND_PAD_DP).toFloat()
             view.translationY = dp(ISLAND_PAD_DP).toFloat()
         } else {
