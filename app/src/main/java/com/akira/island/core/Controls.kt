@@ -4,7 +4,7 @@ import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.os.Build
 import android.provider.Settings
@@ -123,11 +123,10 @@ object Controls {
     fun openInPip(context: Context, pkg: String) {
         val pm = context.packageManager
         val supportsPip = runCatching {
-            (pm.getApplicationInfo(pkg, 0).flags and ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
+            (pm.getApplicationInfo(pkg, 0).flags and PackageManager.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
         }.getOrDefault(false)
         
         if (!supportsPip) {
-            // Приложение не поддерживает PiP — открываем обычным способом
             openApp(context, pkg)
             return
         }
@@ -135,10 +134,8 @@ object Controls {
         val intent = pm.getLaunchIntentForPackage(pkg) ?: return
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         
-        // Пытаемся запустить в PiP
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val options = ActivityOptions.makeBasic()
-            // В Android 12+ можно попробовать задать bounds для PiP, но это не всегда работает
             runCatching { 
                 options.setLaunchBounds(Rect(0, 0, 400, 400)) 
             }
