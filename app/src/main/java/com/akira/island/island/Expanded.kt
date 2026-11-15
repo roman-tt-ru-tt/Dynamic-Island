@@ -15,6 +15,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +43,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -728,16 +728,31 @@ private fun AppQuickButton(pkg: String, context: Context, modifier: Modifier) {
     val icon = remember(pkg) {
         runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
     }
+    val hasPip = remember(pkg) {
+        runCatching {
+            (context.packageManager.getApplicationInfo(pkg, 0).flags and android.content.pm.ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
+        }.getOrDefault(false)
+    }
     val haptic = rememberHaptic()
     
     Row(
         modifier
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.14f))
-            .clickable { 
-                haptic()
-                Controls.collapse()
-                Controls.openApp(context, pkg) 
+            .pointerInput(pkg) {
+                detectTapGestures(
+                    onTap = {
+                        haptic()
+                        Controls.collapse()
+                        Controls.openApp(context, pkg)
+                    },
+                    onLongPress = if (hasPip) {
+                        {
+                            haptic()
+                            Controls.openInPip(context, pkg)
+                        }
+                    } else null
+                )
             }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
