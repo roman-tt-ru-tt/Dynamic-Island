@@ -4,6 +4,7 @@ import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Build
 import android.provider.Settings
 import android.telecom.TelecomManager
@@ -13,6 +14,7 @@ import android.media.session.MediaController
 import android.media.session.PlaybackState
 import android.os.SystemClock
 
+/** Команды, которые капсула отдаёт системе: плеер, таймер, фонарик, громкость. */
 object Controls {
     @Volatile
     var mediaController: MediaController? = null
@@ -20,6 +22,7 @@ object Controls {
     var torchOn: () -> Unit = {}
     var torchOff: () -> Unit = {}
     var torchLevel: (Int) -> Unit = {}
+
     var dismissNotification: (String) -> Unit = {}
 
     fun expand(id: String) {
@@ -213,6 +216,18 @@ object Controls {
             Intent(Settings.ACTION_SOUND_SETTINGS)
         }
         runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        collapse()
+    }
+
+    /** Переключает беззвучный режим: нормальный → без звука, без звука → нормальный. */
+    fun toggleSilentMode(context: Context) {
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val next = if (audio.ringerMode == AudioManager.RINGER_MODE_SILENT) {
+            AudioManager.RINGER_MODE_NORMAL
+        } else {
+            AudioManager.RINGER_MODE_SILENT
+        }
+        runCatching { audio.ringerMode = next }
         collapse()
     }
 }
