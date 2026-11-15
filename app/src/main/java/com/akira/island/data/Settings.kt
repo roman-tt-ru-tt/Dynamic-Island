@@ -206,6 +206,8 @@ data class IslandSettings(
     val bubble: Boolean = true,
     val idleExpand: Boolean = true,
     val quickActions: List<QuickAction> = listOf(QuickAction.TIMER, QuickAction.STOPWATCH, QuickAction.FLASHLIGHT),
+    /** Пользовательские приложения в быстрых действиях (TikTok, YouTube и т.д.) */
+    val customQuickApps: List<String> = emptyList(),
     val keepAlive: Boolean = false,
     val msgLines: Int = 3,
     val msgInApp: Boolean = false,
