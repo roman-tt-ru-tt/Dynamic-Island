@@ -376,7 +376,7 @@ private val QuickAction.settingsIcon: ImageVector
         QuickAction.SCREENSHOT -> Icons.Rounded.Screenshot
         QuickAction.CAMERA -> Icons.Rounded.PhotoCamera
         QuickAction.LOCK -> Icons.Rounded.Lock
-        QuickAction.SILENT -> Icons.Rounded.Build
+        QuickAction.SILENT -> Icons.Rounded.NotificationsOff
     }
 
 private val QuickAction.hint: String?
