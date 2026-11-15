@@ -10,14 +10,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.FlashlightOn
+import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Screenshot
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
 import com.akira.island.data.QuickAction
@@ -123,14 +130,14 @@ private fun hourLabel(h: Int) = "%d:00".format(h)
 private fun collapseLabel(sec: Int) = if (sec <= 0) tr("Только касанием мимо или свайпом вверх", "Only by tapping outside or swiping up")
     else tr("Через $sec секунд без касаний", "After $sec seconds without a touch")
 
-private val QuickAction.settingsIcon: androidx.compose.ui.graphics.vector.ImageVector
+private val QuickAction.settingsIcon: ImageVector
     get() = when (this) {
-        QuickAction.TIMER -> androidx.compose.material.icons.Icons.Rounded.HourglassBottom
-        QuickAction.STOPWATCH -> androidx.compose.material.icons.Icons.Rounded.Timer
-        QuickAction.FLASHLIGHT -> androidx.compose.material.icons.Icons.Rounded.FlashlightOn
-        QuickAction.SCREENSHOT -> androidx.compose.material.icons.Icons.Rounded.Screenshot
-        QuickAction.CAMERA -> androidx.compose.material.icons.Icons.Rounded.PhotoCamera
-        QuickAction.LOCK -> androidx.compose.material.icons.Icons.Rounded.Lock
+        QuickAction.TIMER -> Icons.Rounded.HourglassBottom
+        QuickAction.STOPWATCH -> Icons.Rounded.Timer
+        QuickAction.FLASHLIGHT -> Icons.Rounded.FlashlightOn
+        QuickAction.SCREENSHOT -> Icons.Rounded.Screenshot
+        QuickAction.CAMERA -> Icons.Rounded.PhotoCamera
+        QuickAction.LOCK -> Icons.Rounded.Lock
     }
 
 private val QuickAction.hint: String?
