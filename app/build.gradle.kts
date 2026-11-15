@@ -14,7 +14,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 27
-        versionName = "1.6.8.3-тест"
+        versionName = "1.6.8.3-test"
     }
 
     // Ключ подписи в репозитории не хранится: релизный APK собирается без подписи,
