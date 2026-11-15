@@ -228,7 +228,7 @@ fun IslandOverlay(
         if (s.cardProgress) progress.values.maxByOrNull { it.postTime }?.let { persistent += Act.ProgressA(it) }
         if (s.cardCharging && battery.charging) persistent += Act.ChargingA(battery)
         val alarm = nextAlarm
-        if (s.cardAlarm && alarm != null && alarm.triggerAt - alarmNow in 1..ALARM_LEAD_MS) persistent += Act.AlarmA(alarm)
+        if (s.cardAlarm && alarm != null && alarm.triggerAt > alarmNow) persistent += Act.AlarmA(alarm)
 
         val ringing = (persistent.firstOrNull() as? Act.TimerA)?.t?.ringing == true || call?.incoming == true
         val i = persistent.indexOfFirst { it.id == focus }
