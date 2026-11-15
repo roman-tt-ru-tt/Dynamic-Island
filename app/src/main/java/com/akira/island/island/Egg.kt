@@ -5,6 +5,7 @@ import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,17 +40,21 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.akira.island.R
 import com.akira.island.core.IslandBus
+import com.akira.island.core.Lyrics
 import com.akira.island.core.MediaInfo
 import com.akira.island.core.Notice
 import com.akira.island.core.NoticeStyle
@@ -72,73 +77,45 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * Пасхалка. Когда играет «Hopes and Dreams» Тоби Фокса — музыка финальной битвы Undertale, — остров
- * наполняется РЕШИМОСТЬЮ: подпрыгивает в такт песни, светится радугой, как атаки в той битве, на каждую
- * сильную долю из-под него разлетаются звёзды, как у точки сохранения, на каждую новую фразу — вспышка,
- * а вместо эквалайзера бьётся красное сердце — душа. Во вступлении всё тише, с барабанами — в полную силу,
- * на больших поворотах песни — салют, к концу песни и на паузе гаснет.
- * Доли считаются по позиции трека в плеере: слышать звук острову не нужно.
+ * Пасхалка: "다시 만나, 5번 출구" (Chae Yul).
+ * Остров пульсирует в такт, а по всему экрану летают и кружатся звезды на фоне ночного неба.
  */
 object Egg {
-    /**
-     * Темп саундтрека: в файлах игры песня идёт 180 ударов в минуту, на альбоме замедлена до 512/3 ≈ 170,667.
-     * Ошибка даже на треть удара за три минуты накопилась бы в целую долю.
-     */
-    const val BPM = 512f / 3f
+    /** Примерный BPM для этой песни */
+    const val BPM = 80f
     const val BEAT_MS = 60_000f / BPM
-    /** Вступление — 16 тактов, на 0:22,5 вступают барабаны */
-    const val DROP_BEAT = 64L
-    /** Большие повороты: барабаны (0:22,5), тема «Your Best Friend» (1:30), смена тональности (1:52,5) */
-    internal val BIG_BEATS = longArrayOf(DROP_BEAT, 256L, 320L)
-
-    /** Удар: 1 в момент сильной доли, быстро гаснет к следующей */
+    
+    /** Удар: 1 в момент сильной доли, быстро гаснет */
     val pulse = mutableFloatStateOf(0f)
-
-    /** Насколько всё ярко: тише во вступлении, гаснет на паузе и в конце трека */
     val intensity = mutableFloatStateOf(0f)
-
-    /** Оттенок радуги, градусы */
     val hue = mutableFloatStateOf(0f)
-
-    /** Вспышка в начале фразы: 0 — только что, 1 — погасла */
     val flash = mutableFloatStateOf(1f)
-
-    /** Время кадра — по нему слои эффектов перерисовываются, пока летят звёзды */
     val frame = mutableLongStateOf(0L)
 
-    /** На сколько остров подпрыгивает на сильную долю; с «Уменьшить эффекты» — не подпрыгивает */
     internal var bounce = 0.03f
-
     internal val sparks = ArrayList<Spark>()
 
-    private val LINE get() = tr("Вас переполняет РЕШИМОСТЬ.", "You're filled with DETERMINATION.")
+    private val LINE get() = tr("다시 만나, 5번 출구", "See you again, Exit 5")
 
-    /** «Hopes and Dreams» Тоби Фокса — по названию и исполнителю, альбому или подписи «Undertale». */
     fun matches(m: MediaInfo): Boolean {
         val title = norm(m.title)
-        if ("hopes and dreams" !in title) return false
+        // Ищем корейское название или Chae Yul
         val about = norm(m.artist) + " " + norm(m.album) + " " + title
-        return "toby fox" in about || "tobyfox" in about || "undertale" in about
+        return ("다시 만나" in title || "5번 출구" in title || "chae yul" in about) && "chae yul" in about
     }
 
     private val nonWord = Regex("[^\\p{L}\\p{N}]+")
 
-    private fun norm(s: String?): String = s.orEmpty().lowercase().replace("&", " and ").replace(nonWord, " ").trim()
+    private fun norm(s: String?): String = s.orEmpty().lowercase().replace(nonWord, " ").trim()
 
-    /** Масштаб острова сейчас: он подпрыгивает от верхней середины, как и при раскрытии. */
     fun bump(): Float = 1f + bounce * pulse.floatValue * intensity.floatValue
 
-    /** Где остров виден с учётом подпрыгивания — свечение и звёзды держатся его краёв. */
     internal fun scaled(b: Rect): Rect {
         val k = bump()
         val half = b.width / 2f * k
         return Rect(b.center.x - half, b.top, b.center.x + half, b.top + b.height * k)
     }
 
-    /**
-     * Следит за плеером: пока играет та самая песня, включает пасхалку ([IslandBus.egg]) и один раз за трек
-     * показывает плашку, как окно диалога из игры. Выключается в «Динамических карточках» → «Пасхалки».
-     */
     fun watch(context: Context, scope: CoroutineScope) {
         var announced: String? = null
         scope.launch {
@@ -156,12 +133,11 @@ object Egg {
                     IslandBus.post(
                         Notice(
                             title = LINE,
-                            caption = m.artist.ifBlank { "Toby Fox" },
+                            caption = m.artist.ifBlank { "Chae Yul" },
                             state = m.title,
-                            icon = Ios.load(context, R.drawable.ic_soul),
-                            tint = SoulRed,
+                            icon = Ios.load(context, R.drawable.ic_star), // Иконка звезды
+                            tint = Color(0xFFA78BFA), // Фиолетовый
                             style = NoticeStyle.EGG,
-                            // Строка печатается по букве — плашке нужно время, чтобы её успели прочитать
                             extraMs = 2_000,
                             openPkg = m.pkg,
                         ),
@@ -179,7 +155,6 @@ object Egg {
     }
 }
 
-/** Звезда, вылетевшая из-под острова: где, куда и с какой скоростью (px/мс), сколько живёт (мс). */
 internal class Spark(
     var x: Float,
     var y: Float,
@@ -192,21 +167,19 @@ internal class Spark(
     var age: Float = 0f,
 )
 
-private val Gold = Color(0xFFFFE14D)
-private val SoulRed = Color(0xFFFF1F1F)
+private val StarGold = Color(0xFFFFD700)
+private val StarPink = Color(0xFFFFB6C1)
+private val StarPurple = Color(0xFFDDA0DD)
+private val SoulPurple = Color(0xFF9370DB)
 
-private fun rainbow(hue: Float): Color = Color.hsv(((hue % 360f) + 360f) % 360f, 0.85f, 1f)
+private fun rainbow(hue: Float): Color = Color.hsv(((hue % 360f) + 360f) % 360f, 0.6f, 1f)
 
-/** Скругление острова: капсула — половина высоты, раскрытый — не больше 44 dp. */
-private fun DrawScope.cornerOf(b: Rect) = min(b.height / 2f, 44.dp.toPx())
-
-/**
- * Ведёт пасхалку покадрово: по позиции трека считает доли, разгоняет радугу, запускает вспышки и звёзды.
- * На паузе, когда всё погасло, кадры не тратит — ждёт, пока музыка заиграет снова.
- */
 @Composable
 fun EggDriver(body: () -> Rect, s: IslandSettings) {
     val density = LocalDensity.current.density
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp * density
+
     val settings by rememberUpdatedState(s)
     LaunchedEffect(Unit) {
         var lastBeat = Long.MIN_VALUE
@@ -224,7 +197,7 @@ fun EggDriver(body: () -> Rect, s: IslandSettings) {
                 val dt = if (last == 0L) 16f else (now - last).coerceIn(1L, 100L).toFloat()
                 last = now
                 val reduce = settings.reduceEffects
-                Egg.bounce = if (reduce) 0f else 0.03f
+                Egg.bounce = if (reduce) 0f else 0.05f // Чуть сильнее прыгает
 
                 val m = IslandBus.media.value
                 val playing = m?.playing == true
@@ -236,35 +209,23 @@ fun EggDriver(body: () -> Rect, s: IslandSettings) {
                 val target = when {
                     !playing -> 0f
                     left < 4_000 -> left / 4_000f
-                    beat < Egg.DROP_BEAT -> 0.6f
+                    beat < 8 -> 0.6f
                     else -> 1f
                 }
                 Egg.intensity.floatValue += (target - Egg.intensity.floatValue) * min(1f, dt / 250f)
                 Egg.pulse.floatValue = if (playing) {
-                    exp(-phase * 5f) * (if (beat % 4 == 0L) 1f else 0.55f)
+                    exp(-phase * 6f) * (if (beat % 4 == 0L) 1f else 0.6f)
                 } else {
                     Egg.pulse.floatValue * exp(-dt / 120f)
                 }
-                Egg.hue.floatValue = (Egg.hue.floatValue + dt * 0.05f) % 360f
+                Egg.hue.floatValue = (Egg.hue.floatValue + dt * 0.03f) % 360f
                 Egg.flash.floatValue = min(1f, Egg.flash.floatValue + dt / 700f)
 
                 if (playing && beat != lastBeat && beat >= 0) {
-                    val strong = beat % 4 == 0L
-                    // Сильная доля: радуга перескакивает дальше, из-под острова — звёзды; новая фраза — вспышка
-                    if (strong) Egg.hue.floatValue = (Egg.hue.floatValue + 40f) % 360f
+                    // На каждый бит разлетаются звезды по всему экрану
                     if (!reduce) {
                         val b = Egg.scaled(body())
-                        when {
-                            beat in Egg.BIG_BEATS -> {
-                                spawn(b, density, 30, colorful = true)
-                                Egg.flash.floatValue = 0f
-                            }
-                            beat % 16 == 0L -> {
-                                spawn(b, density, 14, colorful = true)
-                                Egg.flash.floatValue = 0f
-                            }
-                            strong -> spawn(b, density, 6, colorful = false)
-                        }
+                        spawn(b, density, screenHeight, if (beat % 4 == 0L) 25 else 10)
                     }
                 }
                 lastBeat = beat
@@ -277,61 +238,50 @@ fun EggDriver(body: () -> Rect, s: IslandSettings) {
     }
 }
 
-/** Звёзды вылетают с нижнего края и боков острова наружу. [px] — пикселей в dp. */
-private fun spawn(b: Rect, px: Float, n: Int, colorful: Boolean) {
+/** Звезды вылетают из случайных мест экрана или из острова */
+private fun spawn(b: Rect, px: Float, screenHeight: Float, n: Int) {
     if (b.isEmpty) return
     repeat(n) {
-        val side = Random.nextFloat()
+        val fromIsland = Random.nextFloat() < 0.3f
         val x: Float
         val y: Float
         var nx: Float
         var ny: Float
-        when {
-            side < 0.6f -> {
-                x = b.left + b.width * (0.08f + 0.84f * Random.nextFloat())
-                y = b.bottom
-                nx = (x - b.center.x) / b.width
-                ny = 1f
-            }
-            side < 0.8f -> {
-                x = b.left
-                y = b.top + b.height * Random.nextFloat()
-                nx = -1f
-                ny = 0.45f
-            }
-            else -> {
-                x = b.right
-                y = b.top + b.height * Random.nextFloat()
-                nx = 1f
-                ny = 0.45f
-            }
+        
+        if (fromIsland) {
+            x = b.left + b.width * Random.nextFloat()
+            y = b.bottom
+            nx = (x - b.center.x) / b.width
+            ny = 1f
+        } else {
+            x = Random.nextFloat() * px * 400f
+            y = Random.nextFloat() * screenHeight
+            nx = Random.nextFloat() * 2f - 1f
+            ny = Random.nextFloat() * 2f - 1f
         }
-        val len = sqrt(nx * nx + ny * ny)
+        
+        val len = sqrt(nx * nx + ny * ny).coerceAtLeast(0.01f)
         nx /= len
         ny /= len
-        val turn = (Random.nextFloat() - 0.5f) * 0.9f
-        val speed = (0.07f + Random.nextFloat() * 0.15f) * px
-        val color = when {
-            colorful -> rainbow(Random.nextFloat() * 360f)
-            Random.nextFloat() < 0.3f -> Color.White
-            else -> Gold
-        }
+        val turn = (Random.nextFloat() - 0.5f) * 2f // Больше разброса
+        val speed = (0.05f + Random.nextFloat() * 0.1f) * px
+        val color = listOf(StarGold, StarPink, StarPurple, SoulPurple).random()
+        
         Egg.sparks += Spark(
             x, y,
             vx = (nx * cos(turn) - ny * sin(turn)) * speed,
             vy = (nx * sin(turn) + ny * cos(turn)) * speed,
-            life = 700f + Random.nextFloat() * 500f,
-            size = (3f + Random.nextFloat() * 4f) * px,
+            life = 1500f + Random.nextFloat() * 1000f, // Живут дольше
+            size = (4f + Random.nextFloat() * 6f) * px,
             color = color,
             spin = Random.nextFloat() * 6.28f,
         )
     }
-    while (Egg.sparks.size > 90) Egg.sparks.removeAt(0)
+    while (Egg.sparks.size > 150) Egg.sparks.removeAt(0)
 }
 
-/** Звёзды летят, тормозят и чуть падают — одинаково при любой частоте кадров. */
 private fun step(dt: Float, px: Float) {
-    val drag = exp(-dt / 900f)
+    val drag = exp(-dt / 1200f)
     val it = Egg.sparks.iterator()
     while (it.hasNext()) {
         val p = it.next()
@@ -343,12 +293,11 @@ private fun step(dt: Float, px: Float) {
         p.x += p.vx * dt
         p.y += p.vy * dt
         p.vx *= drag
-        p.vy = p.vy * drag + 0.00008f * px * dt
-        p.spin += dt * 0.004f
+        p.vy = p.vy * drag + 0.00003f * px * dt // Медленно падают
+        p.spin += dt * 0.003f
     }
 }
 
-/** Радужное свечение за островом: ореол вспыхивает и расходится на каждую долю. */
 @Composable
 fun EggGlow(body: () -> Rect) {
     Canvas(Modifier.fillMaxSize()) {
@@ -359,15 +308,15 @@ fun EggGlow(body: () -> Rect) {
         val b = Egg.scaled(raw)
         val e = Egg.pulse.floatValue
         val hue = Egg.hue.floatValue
-        val corner = cornerOf(b)
-        // Кольца вдвое шире шага и перекрывают друг друга — свечение ровное, без полос
-        val gap = 2.2.dp.toPx() * (1f + 0.8f * e)
+        val corner = min(b.height / 2f, 44.dp.toPx())
+        
+        val gap = 2.5.dp.toPx() * (1f + 0.5f * e)
         val width = gap * 2f
-        for (k in 1..10) {
+        for (k in 1..8) {
             val grow = k * gap
-            val fade = 1f - k / 11f
+            val fade = 1f - k / 9f
             drawIslandRect(
-                rainbow(hue + k * 10f).copy(alpha = (i * (0.08f + 0.3f * e) * fade * fade).coerceIn(0f, 1f)),
+                rainbow(hue + k * 15f).copy(alpha = (i * (0.1f + 0.3f * e) * fade).coerceIn(0f, 1f)),
                 topLeft = Offset(b.left - grow, b.top - grow),
                 size = Size(b.width + grow * 2, b.height + grow * 2),
                 corner = corner + grow,
@@ -378,7 +327,6 @@ fun EggGlow(body: () -> Rect) {
     }
 }
 
-/** Поверх острова: вспышка новой фразы и разлетающиеся звёзды. */
 @Composable
 fun EggSparks(body: () -> Rect) {
     Canvas(Modifier.fillMaxSize()) {
@@ -386,15 +334,16 @@ fun EggSparks(body: () -> Rect) {
         val raw = body()
         val i = Egg.intensity.floatValue
         if (raw.isEmpty || i < 0.01f) return@Canvas
+        
+        // Вспышка при смене фраз
         val f = Egg.flash.floatValue
         if (f < 1f) {
-            // Радужная ударная волна: яркое кольцо и два бледнее снаружи
             val b = Egg.scaled(raw)
-            val corner = cornerOf(b)
+            val corner = min(b.height / 2f, 44.dp.toPx())
             val width = 4.dp.toPx() * (1f - f) + 1.5f
             val wave = Brush.sweepGradient(List(7) { rainbow(Egg.hue.floatValue + 180f + it * 60f) }, b.center)
             for (k in 0..2) {
-                val grow = f * 46.dp.toPx() + k * width
+                val grow = f * 60.dp.toPx() + k * width
                 drawIslandRect(
                     wave,
                     topLeft = Offset(b.left - grow, b.top - grow),
@@ -406,22 +355,20 @@ fun EggSparks(body: () -> Rect) {
                 )
             }
         }
+        
+        // Звезды
         for (p in Egg.sparks) {
             val t = p.age / p.life
-            star(Offset(p.x, p.y), p.size * (1f - 0.4f * t), p.spin, p.color.copy(alpha = ((1f - t) * i).coerceIn(0f, 1f)))
+            star(Offset(p.x, p.y), p.size * (1f - 0.3f * t), p.spin, p.color.copy(alpha = ((1f - t) * i).coerceIn(0f, 1f)))
         }
     }
 }
 
-/**
- * Радужная кромка по краю острова. Рисуется внутри него, поэтому повторяет и форму, и подпрыгивание;
- * цвета бегут по кругу.
- */
 fun DrawScope.eggRim(corner: Float, notch: Boolean) {
     val i = Egg.intensity.floatValue
     if (i < 0.01f) return
     val e = Egg.pulse.floatValue
-    val w = (1.5f + 1.5f * e).dp.toPx()
+    val w = (2f + 2f * e).dp.toPx()
     val hue = Egg.hue.floatValue
     drawIslandRect(
         Brush.sweepGradient(List(7) { rainbow(hue + it * 60f) }, center),
@@ -430,11 +377,10 @@ fun DrawScope.eggRim(corner: Float, notch: Boolean) {
         corner = corner - w / 2,
         notch = notch,
         style = Stroke(w),
-        alpha = (i * (0.55f + 0.45f * e)).coerceIn(0f, 1f),
+        alpha = (i * (0.6f + 0.4f * e)).coerceIn(0f, 1f),
     )
 }
 
-/** Четырёхлучевая звезда, как у точки сохранения. */
 private fun DrawScope.star(c: Offset, r: Float, rotation: Float, color: Color) {
     val path = Path()
     for (k in 0 until 8) {
@@ -448,11 +394,11 @@ private fun DrawScope.star(c: Offset, r: Float, rotation: Float, color: Color) {
     drawPath(path, color)
 }
 
-/** Душа — красное пиксельное сердце из Undertale; бьётся в такт песни. */
 @Composable
 fun SoulHeart(modifier: Modifier = Modifier) {
+    // Вместо сердца — фиолетовая звезда
     Icon(
-        ImageVector.vectorResource(R.drawable.ic_soul), null, tint = SoulRed,
+        ImageVector.vectorResource(R.drawable.ic_star), null, tint = SoulPurple,
         modifier = modifier.graphicsLayer {
             val k = 1f + 0.25f * Egg.pulse.floatValue
             scaleX = k
@@ -461,25 +407,37 @@ fun SoulHeart(modifier: Modifier = Modifier) {
     )
 }
 
-/**
- * Плашка в начале песни — как окно диалога из игры: белая рамка и строка, которая печатается по букве.
- * Сверху, по бокам от камеры, — душа с исполнителем и название песни, как шапка уведомления.
- * Нажатие открывает плеер.
- */
 @Composable
 fun EggBanner(n: Notice, s: IslandSettings) {
     val haptic = rememberHaptic()
     LaunchedEffect(n.id) { haptic() }
     val dim = Color.White.copy(alpha = 0.55f)
-    val line = n.title
-    var typed by remember(n.id) { mutableIntStateOf(if (s.reduceEffects) line.length else 0) }
-    LaunchedEffect(n.id) {
-        while (typed < line.length) {
-            // Как в игре: буква за буквой, на точке — заминка
-            delay(if (line[typed] in ".,!?") 180L else 42L)
+    
+    // Если есть текст песни, покажем его, иначе — фразу из игры
+    val lyrics by IslandBus.lyrics.collectAsState()
+    val media by IslandBus.media.collectAsState()
+    val pos = rememberWallNow(100) { media?.positionAt(it) ?: 0L }
+    
+    val lineText = remember(lyrics, pos) {
+        val l = lyrics
+        val m = media
+        if (l != null && m != null && l.key == m.key && l.lines.isNotEmpty()) {
+            val idx = l.indexAt(pos)
+            if (idx >= 0) l.lines[idx].text else "• • •"
+        } else {
+            Egg.LINE // fallback
+        }
+    }
+
+    var typed by remember(n.id) { mutableIntStateOf(if (s.reduceEffects) lineText.length else 0) }
+    LaunchedEffect(n.id, lineText) {
+        typed = if (s.reduceEffects) lineText.length else 0
+        while (typed < lineText.length) {
+            delay(if (lineText[typed] in ".,!?" || lineText[typed] == ' ') 150L else 50L)
             typed++
         }
     }
+    
     Column(Modifier.width(messageWidth()).padding(bottom = 14.dp)) {
         Row(
             Modifier.fillMaxWidth().height(s.height.dp).padding(horizontal = 18.dp),
@@ -496,23 +454,22 @@ fun EggBanner(n: Notice, s: IslandSettings) {
             }
         }
         Spacer(Modifier.height((messageTop(s) - s.height.dp).coerceAtLeast(4.dp)))
-        Row(
+        Box(
             Modifier
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth()
-                .border(2.5.dp, Color.White, RoundedCornerShape(3.dp))
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .border(1.dp, SoulPurple.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text("*", color = Color.White, fontSize = 15.sp, lineHeight = 21.sp, fontFamily = FontFamily.Monospace)
-            Spacer(Modifier.width(10.dp))
-            // Ещё не напечатанное уже занимает место — строки не перескакивают, пока текст печатается
             Text(
                 buildAnnotatedString {
-                    append(line.take(typed))
-                    withStyle(SpanStyle(color = Color.Transparent)) { append(line.drop(typed)) }
+                    withStyle(SpanStyle(color = Color.White)) { append(lineText.take(typed)) }
+                    withStyle(SpanStyle(color = Color.White.copy(alpha = 0f))) { append(lineText.drop(typed)) }
                 },
-                color = Color.White, fontSize = 15.sp, lineHeight = 21.sp, fontFamily = FontFamily.Monospace,
-                maxLines = 3, overflow = TextOverflow.Ellipsis,
+                color = Color.White, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
             )
         }
     }
