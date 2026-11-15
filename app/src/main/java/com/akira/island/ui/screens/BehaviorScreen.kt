@@ -1,7 +1,6 @@
 package com.akira.island.ui.screens
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -27,6 +25,8 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Circle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.FlashlightOn
 import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.LightMode
@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,6 +67,8 @@ import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
 import com.akira.island.data.QuickAction
 import com.akira.island.data.SettingsRepo
+import com.akira.island.island.DrawableImage
+import com.akira.island.island.ReorderableColumn
 import com.akira.island.ui.ChoiceDialog
 import com.akira.island.ui.Group
 import com.akira.island.ui.GroupItem
@@ -75,6 +78,7 @@ import com.akira.island.ui.Page
 import com.akira.island.ui.Pos
 import com.akira.island.ui.SectionHeader
 import com.akira.island.ui.Tile
+import com.akira.island.ui.Ui
 
 @Composable
 fun BehaviorScreen(onBack: () -> Unit) {
@@ -129,48 +133,112 @@ fun BehaviorScreen(onBack: () -> Unit) {
                 tr("Часы, заряд и кнопки ниже. Выключено — нажатие ничего не делает",
                     "Clock, battery and the buttons below. Off — tapping does nothing"),
                 s.idleExpand, color = Tile.Blue) { v -> SettingsRepo.update { copy(idleExpand = v) } }
-            
-            if (s.idleExpand) {
-                // Стандартные действия
+        }
+
+        if (s.idleExpand) {
+            SectionHeader(tr("Стандартные кнопки", "Standard buttons"))
+            Group {
                 QuickAction.entries.forEachIndexed { i, a ->
-                    GroupToggle(if (i == QuickAction.entries.lastIndex && s.customQuickApps.isEmpty()) Pos.Last else Pos.Middle, a.settingsIcon, a.title,
-                        a.hint, a in s.quickActions, color = Tile.Orange) { v ->
+                    GroupToggle(
+                        when {
+                            i == 0 && s.customQuickApps.isEmpty() -> Pos.First
+                            i == QuickAction.entries.lastIndex && s.customQuickApps.isEmpty() -> Pos.Last
+                            i == 0 -> Pos.First
+                            else -> Pos.Middle
+                        },
+                        a.settingsIcon, a.title, a.hint, a in s.quickActions, color = Tile.Orange
+                    ) { v ->
                         SettingsRepo.update { copy(quickActions = QuickAction.entries.filter { if (it == a) v else it in quickActions }) }
                     }
                 }
-                
-                // Свои приложения
-                if (s.customQuickApps.isNotEmpty()) {
-                    s.customQuickApps.forEachIndexed { i, pkg ->
+            }
+
+            SectionHeader(tr("Свои приложения и порядок", "Custom apps and order"))
+            Text(
+                tr("Долгое нажатие — перетащить. Изменения сохраняются сразу.",
+                    "Long press to drag. Changes are saved immediately."),
+                color = Ui.Sub,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+
+            val allKeys = remember(s.quickActions, s.customQuickApps, s.quickOrder) {
+                val default = s.quickActions.map { "action:${it.name}" } + s.customQuickApps.map { "app:$it" }
+                s.quickOrder.filter { it in default } + default.filter { it !in s.quickOrder }
+            }
+
+            ReorderableColumn(
+                items = allKeys,
+                key = { it },
+                onMove = { from, to ->
+                    val new = allKeys.toMutableList().apply { add(to, removeAt(from)) }
+                    SettingsRepo.update { copy(quickOrder = new) }
+                },
+                modifier = Modifier.padding(horizontal = 8.dp),
+                spacing = 6.dp,
+            ) { keyStr, isDragging ->
+                val parts = keyStr.split(":", limit = 2)
+                val type = parts[0]
+                val value = parts[1]
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isDragging) Tile.Blue.copy(alpha = 0.3f) else Ui.Card)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (type == "action") {
+                        val action = QuickAction.valueOf(value)
+                        Icon(action.settingsIcon, null, tint = Tile.Orange, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(action.title, color = Ui.Text, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                    } else {
+                        val pkg = value
                         val appName = remember(pkg) {
                             runCatching {
                                 val pm = context.packageManager
                                 pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
                             }.getOrDefault(pkg)
                         }
-                        
-                        GroupItem(
-                            if (i == s.customQuickApps.lastIndex) Pos.Middle else Pos.Middle,
-                            Icons.Rounded.Apps,
-                            appName,
-                            tr("Открыть приложение из острова", "Open app from the island"),
-                            color = Tile.Blue,
-                            onClick = { SettingsRepo.update { copy(customQuickApps = customQuickApps - pkg) } }
-                        ) {
-                            Icon(Icons.Rounded.Close, null, tint = Tile.Red)
+                        val icon = remember(pkg) {
+                            runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
+                        }
+                        if (icon != null) {
+                            DrawableImage(icon, Modifier.size(24.dp).clip(CircleShape))
+                        } else {
+                            Icon(Icons.Rounded.Apps, null, tint = Tile.Blue, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(appName, color = Ui.Text, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                        IconButton(onClick = {
+                            SettingsRepo.update { copy(customQuickApps = customQuickApps - pkg, quickOrder = quickOrder - keyStr) }
+                        }) {
+                            Icon(Icons.Rounded.Close, null, tint = Tile.Red, modifier = Modifier.size(18.dp))
                         }
                     }
+                    Icon(
+                        if (isDragging) Icons.Rounded.DragIndicator else Icons.Rounded.DragHandle,
+                        null, tint = Ui.Sub, modifier = Modifier.size(20.dp)
+                    )
                 }
+            }
 
-                // Кнопка добавления
-                GroupItem(
-                    if (s.customQuickApps.isEmpty()) Pos.Last else Pos.Last,
-                    Icons.Rounded.Add,
-                    tr("Добавить приложение", "Add app"),
-                    tr("TikTok, YouTube и другие", "TikTok, YouTube, etc."),
-                    color = Tile.Green,
-                    onClick = { showAppPicker = true }
-                )
+            // Кнопка добавления
+            Row(
+                Modifier
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Ui.Card)
+                    .clickable { showAppPicker = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Add, null, tint = Tile.Green, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(tr("Добавить приложение", "Add app"), color = Tile.Green, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -196,7 +264,12 @@ fun BehaviorScreen(onBack: () -> Unit) {
             installed = s.customQuickApps,
             onPick = { pkg ->
                 if (!s.customQuickApps.contains(pkg)) {
-                    SettingsRepo.update { copy(customQuickApps = customQuickApps + pkg) }
+                    SettingsRepo.update {
+                        copy(
+                            customQuickApps = customQuickApps + pkg,
+                            quickOrder = quickOrder + "app:$pkg",
+                        )
+                    }
                 }
                 showAppPicker = false
             },
@@ -212,7 +285,7 @@ private fun AppPickerDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    
+
     val apps = remember {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -248,7 +321,7 @@ private fun AppPickerDialog(
                             }.getOrNull()
                         }
                         val added = pkg in installed
-                        
+
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -303,6 +376,7 @@ private val QuickAction.settingsIcon: ImageVector
         QuickAction.SCREENSHOT -> Icons.Rounded.Screenshot
         QuickAction.CAMERA -> Icons.Rounded.PhotoCamera
         QuickAction.LOCK -> Icons.Rounded.Lock
+        QuickAction.SILENT -> Icons.Rounded.Build
     }
 
 private val QuickAction.hint: String?
@@ -310,5 +384,7 @@ private val QuickAction.hint: String?
         QuickAction.SCREENSHOT -> tr("Остров на миг прячется — на снимке его нет (Android 9+)",
             "The island hides for a moment, so it's not in the shot (Android 9+)")
         QuickAction.LOCK -> tr("Гасит экран, как кнопка питания (Android 9+)", "Turns the screen off like the power button (Android 9+)")
+        QuickAction.SILENT -> tr("Переключает между звонком и беззвучным режимом",
+            "Toggles between ring and silent mode")
         else -> null
     }
