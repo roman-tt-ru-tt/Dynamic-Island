@@ -17,11 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -78,11 +79,9 @@ import kotlin.random.Random
  * Остров пульсирует в такт, а по всему экрану летают и кружатся звезды на фоне ночного неба.
  */
 object Egg {
-    /** Примерный BPM для этой песни */
     const val BPM = 80f
     const val BEAT_MS = 60_000f / BPM
     
-    /** Удар: 1 в момент сильной доли, быстро гаснет */
     val pulse = mutableFloatStateOf(0f)
     val intensity = mutableFloatStateOf(0f)
     val hue = mutableFloatStateOf(0f)
@@ -92,7 +91,7 @@ object Egg {
     internal var bounce = 0.03f
     internal val sparks = ArrayList<Spark>()
 
-    val LINE: String get() = tr("다시 만나, 5번 출구", "See you again, Exit 5")
+    val LINE: String get() = tr("ВЫ ОТКРЫЛИ ВОСПОМИНАНИЯ", "YOU OPENED MEMORIES")
 
     fun matches(m: com.akira.island.core.MediaInfo): Boolean {
         val title = norm(m.title)
@@ -131,8 +130,8 @@ object Egg {
                             title = LINE,
                             caption = m.artist.ifBlank { "Chae Yul" },
                             state = m.title,
-                            icon = Ios.load(context, R.drawable.ic_tab_island), // Взяли существующую иконку
-                            tint = Color(0xFFA78BFA), // Фиолетовый
+                            icon = Ios.load(context, R.drawable.ic_tab_island),
+                            tint = Color(0xFFA78BFA),
                             style = NoticeStyle.EGG,
                             extraMs = 2_000,
                             openPkg = m.pkg,
@@ -167,6 +166,7 @@ private val StarGold = Color(0xFFFFD700)
 private val StarPink = Color(0xFFFFB6C1)
 private val StarPurple = Color(0xFFDDA0DD)
 private val SoulPurple = Color(0xFF9370DB)
+private val SoulRed = Color(0xFFFF1F1F) // Цвет сердца для плашки
 
 private fun rainbow(hue: Float): Color = Color.hsv(((hue % 360f) + 360f) % 360f, 0.6f, 1f)
 
@@ -174,6 +174,7 @@ private fun rainbow(hue: Float): Color = Color.hsv(((hue % 360f) + 360f) % 360f,
 fun EggDriver(body: () -> Rect, s: IslandSettings) {
     val density = LocalDensity.current.density
     val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp * density
     val screenHeight = configuration.screenHeightDp * density
 
     val settings by rememberUpdatedState(s)
@@ -220,7 +221,7 @@ fun EggDriver(body: () -> Rect, s: IslandSettings) {
                 if (playing && beat != lastBeat && beat >= 0) {
                     if (!reduce) {
                         val b = Egg.scaled(body())
-                        spawn(b, density, screenHeight, if (beat % 4 == 0L) 25 else 10)
+                        spawn(b, screenWidth, screenHeight, if (beat % 4 == 0L) 40 else 15)
                     }
                 }
                 lastBeat = beat
@@ -233,10 +234,10 @@ fun EggDriver(body: () -> Rect, s: IslandSettings) {
     }
 }
 
-private fun spawn(b: Rect, px: Float, screenHeight: Float, n: Int) {
+private fun spawn(b: Rect, screenWidth: Float, screenHeight: Float, n: Int) {
     if (b.isEmpty) return
     repeat(n) {
-        val fromIsland = Random.nextFloat() < 0.3f
+        val fromIsland = Random.nextFloat() < 0.2f
         val x: Float
         val y: Float
         var nx: Float
@@ -248,7 +249,7 @@ private fun spawn(b: Rect, px: Float, screenHeight: Float, n: Int) {
             nx = (x - b.center.x) / b.width
             ny = 1f
         } else {
-            x = Random.nextFloat() * px * 400f
+            x = Random.nextFloat() * screenWidth
             y = Random.nextFloat() * screenHeight
             nx = Random.nextFloat() * 2f - 1f
             ny = Random.nextFloat() * 2f - 1f
@@ -258,20 +259,20 @@ private fun spawn(b: Rect, px: Float, screenHeight: Float, n: Int) {
         nx /= len
         ny /= len
         val turn = (Random.nextFloat() - 0.5f) * 2f
-        val speed = (0.05f + Random.nextFloat() * 0.1f) * px
+        val speed = (0.05f + Random.nextFloat() * 0.15f) * (screenWidth / 400f)
         val color = listOf(StarGold, StarPink, StarPurple, SoulPurple).random()
         
         Egg.sparks += Spark(
             x, y,
             vx = (nx * cos(turn) - ny * sin(turn)) * speed,
             vy = (nx * sin(turn) + ny * cos(turn)) * speed,
-            life = 1500f + Random.nextFloat() * 1000f,
-            size = (4f + Random.nextFloat() * 6f) * px,
+            life = 2000f + Random.nextFloat() * 1500f,
+            size = (8f + Random.nextFloat() * 12f),
             color = color,
             spin = Random.nextFloat() * 6.28f,
         )
     }
-    while (Egg.sparks.size > 150) Egg.sparks.removeAt(0)
+    while (Egg.sparks.size > 250) Egg.sparks.removeAt(0)
 }
 
 private fun step(dt: Float, px: Float) {
@@ -404,29 +405,14 @@ fun EggBanner(n: Notice, s: IslandSettings) {
     LaunchedEffect(n.id) { haptic() }
     val dim = Color.White.copy(alpha = 0.55f)
     
-    // Берем текст песни, если он есть
-    val lyrics by IslandBus.lyrics.collectAsState()
-    val media by IslandBus.media.collectAsState()
-    // rememberNow(periodMs) — обновляем позицию 10 раз в секунду
-    val now = rememberNow(100)
-    val pos = media?.positionAt(now) ?: 0L
-    
-    val lineText = remember(lyrics, pos) {
-        val l = lyrics
-        val m = media
-        if (l != null && m != null && l.key == m.key && l.lines.isNotEmpty()) {
-            val idx = l.indexAt(pos)
-            if (idx >= 0) l.lines[idx].text else "• • •"
-        } else {
-            Egg.LINE // fallback на название песни
-        }
-    }
+    // Заменили текст на нужный
+    val lineText = "ВЫ ОТКРЫЛИ ВОСПОМИНАНИЯ"
 
     var typed by remember(n.id) { mutableIntStateOf(if (s.reduceEffects) lineText.length else 0) }
-    LaunchedEffect(n.id, lineText) {
+    LaunchedEffect(n.id) {
         typed = if (s.reduceEffects) lineText.length else 0
         while (typed < lineText.length) {
-            delay(if (lineText[typed] in ".,!?" || lineText[typed] == ' ') 150L else 50L)
+            delay(if (lineText[typed] in ".,!?" || lineText[typed] == ' ') 150L else 60L)
             typed++
         }
     }
@@ -437,7 +423,8 @@ fun EggBanner(n: Notice, s: IslandSettings) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                SoulHeart(Modifier.size(14.dp))
+                // Используем красное сердце для плашки, чтобы было как в Undertale
+                Icon(Icons.Rounded.Favorite, null, tint = SoulRed, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(n.caption.orEmpty(), color = dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -451,9 +438,9 @@ fun EggBanner(n: Notice, s: IslandSettings) {
             Modifier
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                .border(1.dp, SoulPurple.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                .border(1.dp, SoulPurple.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -461,8 +448,13 @@ fun EggBanner(n: Notice, s: IslandSettings) {
                     withStyle(SpanStyle(color = Color.White)) { append(lineText.take(typed)) }
                     withStyle(SpanStyle(color = Color.White.copy(alpha = 0f))) { append(lineText.drop(typed)) }
                 },
-                color = Color.White, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                color = Color.White, 
+                fontSize = 18.sp, // Чуть увеличили шрифт
+                lineHeight = 24.sp, 
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, 
+                maxLines = 2, 
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
