@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Nfc
@@ -50,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -104,9 +106,7 @@ import com.akira.island.update.UpdateChecker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Какие разрешения есть. Проверяются заново каждый раз, когда возвращаемся из системных настроек. */
 private class PermState(val accessibility: Boolean, val notifications: Boolean, val calls: Boolean, val bluetooth: Boolean) {
-    /** Чего не хватает — для подписи на главной */
     val missing: List<String>
         get() = listOfNotNull(
             tr("спец. возможности", "accessibility").takeIf { !accessibility },
@@ -116,10 +116,6 @@ private class PermState(val accessibility: Boolean, val notifications: Boolean, 
         )
 }
 
-/**
- * Значение, которое читается заново каждый раз, когда возвращаемся на экран (например, из настроек системы),
- * и функция «прочитать ещё раз».
- */
 @Composable
 internal fun <T> rememberOnResume(read: () -> T): Pair<T, () -> Unit> {
     var tick by remember { mutableIntStateOf(0) }
@@ -130,7 +126,6 @@ internal fun <T> rememberOnResume(read: () -> T): Pair<T, () -> Unit> {
     return remember(tick) { read() } to { tick++ }
 }
 
-/** Разрешения и функция «проверить ещё раз» — после ответа на системный запрос. */
 @Composable
 private fun rememberPermState(): Pair<PermState, () -> Unit> {
     val context = LocalContext.current
@@ -139,10 +134,6 @@ private fun rememberPermState(): Pair<PermState, () -> Unit> {
     }
 }
 
-/**
- * «Главная»: живой пример, включён ли остров, разрешения и проверка. Всё, что настраивается, —
- * во вкладках «Функции» и «Оформление», версия и помощь — в «О приложении».
- */
 @Composable
 fun HomeScreen(open: (Screen) -> Unit) {
     val context = LocalContext.current
@@ -155,12 +146,10 @@ fun HomeScreen(open: (Screen) -> Unit) {
         IslandPreview()
         UpdateSection()
 
-        // Без службы спец. возможностей острова нет вовсе — это первый шаг
         if (!perms.accessibility) {
             StartCard(onOpen = { Perms.openAccessibility(context) }, onHelp = { open(Screen.INSTRUCTION) })
         }
 
-        // Сообщение пришло и в остров, и своей плашкой мессенджера — подсказываем один раз, как убрать вторую
         val popUp by SystemBanners.popUp.collectAsState()
         val doubled = popUp.filterValues { it }.keys.firstOrNull()
         if (doubled != null && !s.bannerHintHidden) {
@@ -189,9 +178,7 @@ fun HomeScreen(open: (Screen) -> Unit) {
                 color = if (missing.isEmpty()) Tile.Green else Tile.Orange,
                 onClick = { open(Screen.PERMISSIONS) },
             ) { if (missing.isEmpty()) Arrow() else CountBadge(missing.size) }
-            // На виду: на Xiaomi, Oppo, Samsung остров иначе пропадает, и люди не знают почему
             KeepAliveItem(Pos.Middle, open)
-            // И про банки, которые не пускают, пока остров включён
             BanksItem(Pos.Middle, open)
             GroupItem(
                 Pos.Last, Icons.Rounded.Science, tr("Проверка", "Try it"),
@@ -202,7 +189,6 @@ fun HomeScreen(open: (Screen) -> Unit) {
     }
 }
 
-/** Первый шаг на главной: пока служба спец. возможностей выключена. */
 @Composable
 private fun StartCard(onOpen: () -> Unit, onHelp: () -> Unit) {
     val context = LocalContext.current
@@ -230,7 +216,6 @@ private fun StartCard(onOpen: () -> Unit, onHelp: () -> Unit) {
             Modifier.fillMaxWidth().clip(CircleShape).background(Ui.Primary).clickable(onClick = onOpen).padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
         ) { Text(tr("Открыть спец. возможности", "Open Accessibility"), color = Ui.OnPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
-        // Android 13+ не даёт включить службу приложению не из Play Маркета, пока не разрешишь «ограниченные настройки»
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Spacer(Modifier.height(16.dp))
             Text(restrictedHelp(), color = Ui.Sub, fontSize = 14.sp, lineHeight = 20.sp)
@@ -252,7 +237,6 @@ private fun StartCard(onOpen: () -> Unit, onHelp: () -> Unit) {
     }
 }
 
-/** Android 13+ не даёт включить службу приложению не из Play Маркета, пока не разрешишь «ограниченные настройки». */
 internal fun restrictedHelp(): String = tr(
     "Android пишет «Ограниченная настройка» или «Доступ запрещён»? Так он защищает приложения не из Play Маркета:\n" +
         "1. Попробуйте включить службу один раз — появится это окно, закройте его.\n" +
@@ -264,7 +248,6 @@ internal fun restrictedHelp(): String = tr(
         "3. Go back to Accessibility and turn the island on.",
 )
 
-/** «Сообщения приходят дважды?» — когда у мессенджера ещё всплывает своя плашка поверх острова. */
 @Composable
 private fun DoubleBannerCard(app: String, onFix: () -> Unit, onHide: () -> Unit) {
     Column(
@@ -289,7 +272,6 @@ private fun DoubleBannerCard(app: String, onFix: () -> Unit, onHide: () -> Unit)
     }
 }
 
-/** «Разрешения»: что острову нужно от системы и зачем. */
 @Composable
 fun PermissionsScreen(onBack: () -> Unit, open: (Screen) -> Unit) {
     val context = LocalContext.current
@@ -297,7 +279,6 @@ fun PermissionsScreen(onBack: () -> Unit, open: (Screen) -> Unit) {
     val btLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh() }
     val callLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         refresh()
-        // Если система больше не показывает запрос — открываем настройки приложения
         if (result.values.none { it } && !Perms.calls(context)) Perms.openAppDetails(context)
     }
 
@@ -311,6 +292,14 @@ fun PermissionsScreen(onBack: () -> Unit, open: (Screen) -> Unit) {
                 else tr("Нужно включить: без этого острова не будет", "Needed: without it there's no island"),
                 onClick = { Perms.openAccessibility(context) }, color = Tile.Blue,
             ) { Status(perms.accessibility) }
+
+            GroupItem(
+                Pos.Middle, Icons.Rounded.Layers, tr("Поверх других приложений", "Display over other apps"),
+                if (Perms.overlay(context)) tr("Включено — нужно для горизонтального режима", "On — needed for landscape mode")
+                else tr("Нужно включить: для работы острова в горизонтальном режиме", "Needed: for the island to work in landscape mode"),
+                onClick = { Perms.openOverlay(context) }, color = Tile.Orange,
+            ) { Status(Perms.overlay(context)) }
+
             GroupItem(
                 Pos.Middle, Icons.Rounded.Notifications, tr("Доступ к уведомлениям", "Notification access"),
                 if (perms.notifications) tr("Включено — музыка, сообщения, прогресс и таймеры", "On — music, messages, progress and timers")
@@ -347,10 +336,8 @@ fun PermissionsScreen(onBack: () -> Unit, open: (Screen) -> Unit) {
     }
 }
 
-/** Пример для «Проверки»: значок, название, что увидите, и что делает нажатие. */
 private class Demo(val icon: ImageVector, val title: String, val caption: String, val color: Color, val run: () -> Unit)
 
-/** «Проверка»: все примеры в одном месте — нажатие показывает событие в настоящем острове. */
 @Composable
 fun TestsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -392,7 +379,6 @@ private fun demos(context: Context): List<Demo> = listOf(
     },
     Demo(Icons.Rounded.ChatBubble, tr("Сообщение", "Message"),
         tr("С кнопками «Ответить» и «Пометить прочитанным»", "With Reply and Mark as read buttons"), Tile.Blue) {
-        // Пробные кнопки: «Ответить» с полем ввода, как у Telegram и WhatsApp
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
         val test = PendingIntent.getBroadcast(context, 0, Intent("com.akira.island.TEST").setPackage(context.packageName), flags)
@@ -434,7 +420,6 @@ private fun demos(context: Context): List<Demo> = listOf(
         )
     },
     Demo(Icons.Rounded.Nfc, tr("Оплата", "Payment"), tr("«К терминалу», затем «Оплачено» с суммой", "Hold near reader, then Paid with the amount"), Tile.Teal) {
-        // Как настоящая оплата: подсказка держится, пока ждём терминал, потом — «Оплачено»
         val pkg = context.packageName
         IslandBus.payReady.value = PayReady(pkg, NotificationParser.icon(context, pkg))
         IslandBus.scope.launch {
@@ -469,7 +454,6 @@ internal fun Status(ok: Boolean) {
     }
 }
 
-/** Сколько разрешений не хватает — оранжевый кружок с числом. */
 @Composable
 private fun CountBadge(n: Int) {
     Box(Modifier.size(26.dp).clip(CircleShape).background(Tile.Orange), contentAlignment = Alignment.Center) {
@@ -482,7 +466,6 @@ fun Arrow() {
     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Ui.Sub)
 }
 
-/** Живой пример капсулы с текущими настройками: толщина, боковые части, цвет и контур. */
 @Composable
 fun IslandPreview(expanded: Boolean = false) {
     val s by SettingsRepo.state.collectAsState()
@@ -506,9 +489,7 @@ fun IslandPreview(expanded: Boolean = false) {
         val shape = islandShape(corner, s)
         Box(
             Modifier
-                // «Как вырез» — капсула от самого верха, как на экране
                 .padding(top = if (s.notch) 0.dp else 18.dp)
-                // «Свечение обложки» видно и на примере
                 .then(if (!expanded && s.fxGlow && !s.reduceEffects) Modifier.drawBehind { islandGlow(demo.accent, 1f, corner.toPx(), s.notch) } else Modifier)
                 .clip(shape)
                 .then(
