@@ -242,16 +242,25 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             },
         )
 
-        is Act.ChargingA -> CompactRow(h, gap, side * 1.6f,
-            left = { Icon(Ios.flash, null, tint = Tints.Green, modifier = Modifier.size(icon)) },
-            right = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TimeText("${act.b.level}%", Tints.Green, 15)
-                    Spacer(Modifier.width(5.dp))
-                    BatteryGlyph(act.b.level, Tints.Green, Modifier.size(h * 0.6f, h * 0.3f))
-                }
-            },
-        )
+        // ПРИОРИТЕТ: если есть будильник — показываем его вместо зарядки
+        is Act.ChargingA -> {
+            val alarm by IslandBus.nextAlarm.collectAsState()
+            val showAlarm = alarm != null && alarm!!.triggerAt > System.currentTimeMillis()
+            if (showAlarm) {
+                AlarmCompact(alarm!!, s)
+            } else {
+                CompactRow(h, gap, side * 1.6f,
+                    left = { Icon(Ios.flash, null, tint = Tints.Green, modifier = Modifier.size(icon)) },
+                    right = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TimeText("${act.b.level}%", Tints.Green, 15)
+                            Spacer(Modifier.width(5.dp))
+                            BatteryGlyph(act.b.level, Tints.Green, Modifier.size(h * 0.6f, h * 0.3f))
+                        }
+                    },
+                )
+            }
+        }
 
         is Act.LiveA -> LiveCompact(act.l, s)
         is Act.AlarmA -> AlarmCompact(act.a, s)
