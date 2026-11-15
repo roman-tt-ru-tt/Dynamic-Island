@@ -4,6 +4,8 @@ import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.graphics.Rect
 import android.os.Build
 import android.provider.Settings
 import android.telecom.TelecomManager
@@ -22,7 +24,7 @@ object Controls {
     var torchOff: () -> Unit = {}
     var torchLevel: (Int) -> Unit = {}
 
-    // Добавляем метод для закрытия уведомления в системе
+    // Метод для закрытия уведомления в системе
     var dismissNotification: (String) -> Unit = {}
 
     fun expand(id: String) {
@@ -117,6 +119,37 @@ object Controls {
         collapse()
     }
 
+    /** Открыть приложение в режиме «Картинка в картинке» (PiP), если оно это поддерживает. */
+    fun openInPip(context: Context, pkg: String) {
+        val pm = context.packageManager
+        val supportsPip = runCatching {
+            (pm.getApplicationInfo(pkg, 0).flags and ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
+        }.getOrDefault(false)
+        
+        if (!supportsPip) {
+            // Приложение не поддерживает PiP — открываем обычным способом
+            openApp(context, pkg)
+            return
+        }
+        
+        val intent = pm.getLaunchIntentForPackage(pkg) ?: return
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        
+        // Пытаемся запустить в PiP
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val options = ActivityOptions.makeBasic()
+            // В Android 12+ можно попробовать задать bounds для PiP, но это не всегда работает
+            runCatching { 
+                options.setLaunchBounds(Rect(0, 0, 400, 400)) 
+            }
+            runCatching { context.startActivity(intent, options.toBundle()) }
+                .onFailure { openApp(context, pkg) }
+        } else {
+            openApp(context, pkg)
+        }
+        collapse()
+    }
+
     /** Нажать кнопку из уведомления (ответить, отклонить, открыть). */
     fun send(context: Context, intent: PendingIntent?): Boolean {
         intent ?: return false
@@ -145,7 +178,7 @@ object Controls {
         }.isSuccess
     }
 
-    // Звонки: сначала кнопка из уведомления звонилки, иначе системный сервис звонков
+    // Звонки
 
     @Suppress("DEPRECATION", "MissingPermission")
     fun answerCall(context: Context, call: CallInfo) {
@@ -180,12 +213,10 @@ object Controls {
         if (dialer.isNotEmpty()) openApp(context, dialer)
     }
 
-    /** Смахнули входящий звонок вверх — он уходит из острова (звонок продолжается, ответить можно в звонилке). */
     fun hideIncomingCall() {
         IslandBus.callHidden.value = true
     }
 
-    /** Скриншот без острова — остров на миг прячется, снимок делает Android (9+) */
     fun screenshot() {
         IslandBus.commands.tryEmit(ServiceCommand.SCREENSHOT)
     }
@@ -194,7 +225,6 @@ object Controls {
         IslandBus.commands.tryEmit(ServiceCommand.LOCK)
     }
 
-    /** Выключить службу острова, например на время банковского приложения. */
     fun turnOffIsland() {
         IslandBus.commands.tryEmit(ServiceCommand.TURN_OFF)
     }
@@ -214,7 +244,6 @@ object Controls {
         if (call.pkg.isNotEmpty()) openApp(context, call.pkg)
     }
 
-    /** Пробный входящий звонок из приложения: кнопки работают, через 20 секунд он пропадает сам. */
     fun showTestCall() {
         val now = System.currentTimeMillis()
         IslandBus.calls.value = IslandBus.calls.value +
@@ -227,7 +256,6 @@ object Controls {
 
     const val TEST_CALL = "test-call"
 
-    /** Пробная навигация: широкая плашка, потом капсула; через 10 секунд пропадает сама. */
     fun showTestLive(context: Context) {
         val live = LiveInfo(
             key = TEST_LIVE, pkg = context.packageName, kind = LiveKind.NAV,
@@ -248,7 +276,6 @@ object Controls {
     private const val TEST_LIVE_MS = 10_000L
     const val TEST_LIVE = "test-live"
 
-    /** Куда выводится звук: системная панель громкости с выбором устройства. */
     fun openOutput(context: Context) {
         val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             Intent(Settings.Panel.ACTION_VOLUME)
