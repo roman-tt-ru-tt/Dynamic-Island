@@ -313,19 +313,6 @@ fun IslandOverlay(
     val onBubble = remember(onBubbleBounds) { { r: Rect -> onBubbleBounds(if (hiddenNow.value) Rect.Zero else r) } }
     val eggOn = egg && !calibrating
 
-    // НОВОЕ: Анимация "раздувания" при скриншоте
-    val screenshotPulse = remember { Animatable(1f) }
-    LaunchedEffect(Unit) {
-        IslandBus.commands.collect { cmd ->
-            if (cmd == com.akira.island.core.ServiceCommand.SCREENSHOT) {
-                if (s.screenshotPulse) {
-                    screenshotPulse.snapTo(1.35f)
-                    screenshotPulse.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
-                }
-            }
-        }
-    }
-
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         if (!calibrating) PayEffects(primary, { body.value }, s)
         if (eggOn) EggGlow { body.value }
@@ -335,7 +322,7 @@ fun IslandOverlay(
             enter = if (s.reduceEffects) fadeIn() else scaleIn(islandSpec(s), initialScale = 0.3f, transformOrigin = top) + fadeIn(tween(120)),
             exit = if (s.reduceEffects) fadeOut() else scaleOut(islandSpec(s), targetScale = 0.3f, transformOrigin = top) + fadeOut(tween(160)),
         ) {
-            IslandRow(slot, s, primary, showExpanded, lyrics, battery, bubbleVisible, lastSecondary[0], calibrating, screenshotPulse.value, onBody, onBubble)
+            IslandRow(slot, s, primary, showExpanded, lyrics, battery, bubbleVisible, lastSecondary[0], calibrating, onBody, onBubble)
         }
         if (eggOn) {
             EggSparks { body.value }
@@ -355,7 +342,6 @@ private fun IslandRow(
     bubbleVisible: Boolean,
     bubbleAct: Act?,
     calibrating: Boolean,
-    screenshotPulse: Float,
     onBodyBounds: (Rect) -> Unit,
     onBubbleBounds: (Rect) -> Unit,
 ) {
@@ -373,7 +359,7 @@ private fun IslandRow(
         verticalAlignment = Alignment.Top,
     ) {
         Spacer(Modifier.animatedWidth(slot))
-        IslandBody(primary, showExpanded, s, lyrics, battery, calibrating, screenshotPulse, onBodyBounds)
+        IslandBody(primary, showExpanded, s, lyrics, battery, calibrating, onBodyBounds)
         BubbleSlot(slot, bubbleVisible, bubbleAct, s, onBubbleBounds)
     }
 }
@@ -415,7 +401,6 @@ private fun IslandBody(
     lyrics: Lyrics?,
     battery: BatteryInfo,
     calibrating: Boolean,
-    screenshotPulse: Float,
     onBounds: (Rect) -> Unit,
 ) {
     val context = LocalContext.current
@@ -501,8 +486,8 @@ private fun IslandBody(
             .onGloballyPositioned { onBounds(it.boundsInWindow()) }
             .graphicsLayer {
                 val bump = Egg.bump() * PayFx.pop.floatValue
-                scaleX = jellyX.value * (1f + 0.03f * pull.value) * bump * screenshotPulse
-                scaleY = jellyY.value * (1f + 0.08f * pull.value) * bump * screenshotPulse
+                scaleX = jellyX.value * (1f + 0.03f * pull.value) * bump
+                scaleY = jellyY.value * (1f + 0.08f * pull.value) * bump
                 translationX = shake.value.dp.toPx()
                 transformOrigin = TransformOrigin(0.5f, 0f)
             }
@@ -599,25 +584,20 @@ private fun IslandBody(
                                 haptic()
                                 Controls.collapse()
                             }
-                            // Смахнуть уведомление вверх
                             !isExpanded && vertical && dy < -threshold && act is Act.NoticeA -> {
                                 IslandBus.notice.value = null
                             }
-                            // НОВОЕ: Смахнуть уведомление вправо (убирает из острова и шторки)
                             !isExpanded && !vertical && dx > threshold && act is Act.NoticeA -> {
                                 haptic()
                                 act.n.message?.key?.let { key -> Controls.dismissNotification(key) }
                                 IslandBus.notice.value = null
                             }
-                            // НОВОЕ: Смахнуть уведомление влево
                             !isExpanded && !vertical && dx < -threshold && act is Act.NoticeA -> {
                                 haptic()
                                 act.n.message?.key?.let { key -> Controls.dismissNotification(key) }
                                 IslandBus.notice.value = null
                             }
-                            // Подсказку оплаты тоже можно смахнуть
                             !isExpanded && vertical && dy < -threshold && act is Act.PayA -> PayMonitor.clearReady()
-                            // И входящий звонок, если не хочется отвечать: звонок идёт дальше, но остров свободен
                             !isExpanded && vertical && dy < -threshold && act is Act.CallA && act.c.incoming -> {
                                 haptic()
                                 Controls.hideIncomingCall()
