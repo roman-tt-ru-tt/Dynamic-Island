@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.hardware.Sensor
@@ -331,9 +330,9 @@ class IslandService : AccessibilityService() {
         display?.visibility = if (visible) View.VISIBLE else View.GONE
         owner.setActive(visible)
         if (!visible) Controls.collapse()
-        
-        // Применяем фиксацию ориентации
-        applyScreenRotationFix(s)
+
+        // Применяем поворот контента
+        applyRotationFix(s, landscape)
         
         val y = dp(s.topOffset - ISLAND_PAD_DP)
         if (displayParams.y != y) {
@@ -343,11 +342,12 @@ class IslandService : AccessibilityService() {
         updateTouchWindow()
     }
 
-    private fun applyScreenRotationFix(s: IslandSettings = SettingsRepo.current) {
-        val newOrientation = if (s.keepUpright) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        if (displayParams.screenOrientation != newOrientation) {
-            displayParams.screenOrientation = newOrientation
-            display?.let { runCatching { wm?.updateViewLayout(it, displayParams) } }
+    private fun applyRotationFix(s: IslandSettings, landscape: Boolean) {
+        val view = display ?: return
+        // Если включено "Не переворачивать" и экран горизонтальный, крутим окно обратно
+        val rotation = if (s.keepUpright && landscape) 90f else 0f
+        if (view.rotation != rotation) {
+            view.rotation = rotation
         }
     }
 
