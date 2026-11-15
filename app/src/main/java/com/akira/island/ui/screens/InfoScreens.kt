@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -170,7 +171,6 @@ private fun Step(n: Int, title: String, text: String) {
 
 private val GithubPurple = Color(0xFF8250DF)
 
-/** Главная страница проекта на GitHub — в браузере или приложении GitHub. */
 private fun openGithub(context: Context) {
     runCatching {
         context.startActivity(
@@ -179,7 +179,6 @@ private fun openGithub(context: Context) {
     }
 }
 
-/** «О приложении»: версия и обновления, помощь и ссылки — отдельно от настроек. */
 @Composable
 fun AppInfoScreen(open: (Screen) -> Unit) {
     val context = LocalContext.current
@@ -219,6 +218,9 @@ fun AppInfoScreen(open: (Screen) -> Unit) {
             GroupItem(Pos.Middle, Icons.Rounded.CreditCard, tr("Диагностика оплаты", "Payment diagnostics"),
                 tr("Что остров увидел при оплате — если «Оплачено» не появилось", "What the island saw when you paid — if “Paid” didn't show"),
                 onClick = { open(Screen.PAYDIAG) }, color = Tile.Green) { Arrow() }
+            GroupItem(Pos.Middle, Icons.Rounded.BugReport, tr("Логи", "Logs"),
+                tr("Последние записи и отправка разработчику", "Recent entries and share to the developer"),
+                onClick = { open(Screen.LOGS) }, color = Tile.Gray) { Arrow() }
             AppDetailsItem(Pos.Last)
         }
 
@@ -236,14 +238,12 @@ fun AppInfoScreen(open: (Screen) -> Unit) {
     if (notes) NotesDialog { notes = false }
 }
 
-/** Шапка «О приложении»: значок, название, версия и есть ли обновление. */
 @Composable
 private fun AppHeader(version: String, update: UpdateState) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Ui.Card).padding(vertical = 26.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Как значок приложения на рабочем столе: капсула на сиреневом
         Box(Modifier.size(84.dp).clip(RoundedCornerShape(24.dp)).background(Ui.Primary), contentAlignment = Alignment.Center) {
             Image(ImageVector.vectorResource(R.drawable.ic_launcher_foreground), null, Modifier.requiredSize(126.dp))
         }
@@ -267,7 +267,6 @@ private fun AppHeader(version: String, update: UpdateState) {
     }
 }
 
-/** «Об острове»: что он умеет, откуда идея и как устроен. */
 @Composable
 fun IdeaScreen(onBack: () -> Unit) {
     Page(tr("Об острове", "About the island"), onBack) {
@@ -317,10 +316,6 @@ internal fun InfoText(text: String) {
     )
 }
 
-/**
- * Что остров видит в уведомлениях навигаторов, такси и доставки: если расстояние или стрелка
- * не показываются, здесь видно, что именно присылает приложение.
- */
 @Composable
 fun DiagScreen(onBack: () -> Unit) {
     val dumps by LiveDebug.dumps.collectAsState()
@@ -339,10 +334,6 @@ fun DiagScreen(onBack: () -> Unit) {
     )
 }
 
-/**
- * Что остров увидел при оплате: экран оплаты, уведомления и СМС банков и как он их понял. Если «Оплачено»
- * не появилось, здесь видно почему.
- */
 @Composable
 fun PayDiagScreen(onBack: () -> Unit) {
     val log by PayDebug.log.collectAsState()
@@ -372,7 +363,6 @@ private fun DumpScreen(title: String, intro: String, empty: String, items: List<
         } else {
             Row {
                 PillAction(tr("Скопировать всё", "Copy all")) {
-                    // Суммы и тексты банков: Android 13+ не показывает такой буфер обмена во всплывающем превью
                     val clip = ClipData.newPlainText(title, items.joinToString("\n\n"))
                     clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
                     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
