@@ -3,7 +3,7 @@
 package com.akira.island.island
 
 import android.content.Context
-import android.content.pm.PackageManager
+import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedContent
@@ -120,12 +120,10 @@ private val Dim = Color.White.copy(alpha = 0.55f)
 
 @Composable
 fun ExpandedContent(act: Act, s: IslandSettings, lyrics: Lyrics?, battery: BatteryInfo, width: Dp) {
-    // Фонарик, как в iOS 18, — не широкая плашка, а высокая карточка с лучом
     if (act is Act.TorchA) {
         TorchCard(act.t, s)
         return
     }
-    // Сверху — полоса камеры: содержимое начинается ниже выреза, чтобы он ничего не закрывал
     Box(Modifier.width(width).padding(start = 22.dp, end = 22.dp, top = cameraInset(s), bottom = 20.dp)) {
         when (act) {
             is Act.MediaA -> MediaExpanded(act.m, s, lyrics)
@@ -733,7 +731,8 @@ private fun AppQuickButton(pkg: String, context: Context, modifier: Modifier) {
     }
     val hasPip = remember(pkg) {
         runCatching {
-            (context.packageManager.getApplicationInfo(pkg, 0).flags and PackageManager.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
+            val info = context.packageManager.getApplicationInfo(pkg, 0)
+            (info.flags and ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
         }.getOrDefault(false)
     }
     val haptic = rememberHaptic()
