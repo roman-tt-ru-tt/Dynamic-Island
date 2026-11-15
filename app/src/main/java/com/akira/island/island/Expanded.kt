@@ -673,11 +673,24 @@ private fun IdleExpanded(s: IslandSettings, battery: BatteryInfo) {
         if (actions.isEmpty() && s.customQuickApps.isEmpty()) return@Column
         Spacer(Modifier.height(16.dp))
         
-        val allActions = mutableListOf<Any>()
-        actions.filter { it != QuickAction.TIMER }.forEach { allActions.add(it) }
-        s.customQuickApps.forEach { allActions.add(it) }
+        // Собираем все элементы в порядке quickOrder
+        val allKeys = remember(s.quickActions, s.customQuickApps, s.quickOrder) {
+            val default = s.quickActions.map { "action:${it.name}" } + s.customQuickApps.map { "app:$it" }
+            s.quickOrder.filter { it in default } + default.filter { it !in s.quickOrder }
+        }
+        
+        val allActions = allKeys.mapNotNull { keyStr ->
+            val parts = keyStr.split(":", limit = 2)
+            if (parts.size != 2) return@mapNotNull null
+            when (parts[0]) {
+                "action" -> runCatching { QuickAction.valueOf(parts[1]) }.getOrNull()
+                "app" -> parts[1]
+                else -> null
+            }
+        }.filter { it !is QuickAction || it != QuickAction.TIMER }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Таймер отдельно, если выбран
             if (QuickAction.TIMER in actions) Row(
                 Modifier.fillMaxWidth().clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).padding(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -699,13 +712,13 @@ private fun IdleExpanded(s: IslandSettings, battery: BatteryInfo) {
                 }
             }
             
+            // Остальные кнопки — по две в ряд
             allActions.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEach { item ->
-                        if (item is QuickAction) {
-                            QuickButton(item, context, Modifier.weight(1f))
-                        } else if (item is String) {
-                            AppQuickButton(item, context, Modifier.weight(1f))
+                        when (item) {
+                            is QuickAction -> QuickButton(item, context, Modifier.weight(1f))
+                            is String -> AppQuickButton(item, context, Modifier.weight(1f))
                         }
                     }
                     if (row.size == 1) {
@@ -761,6 +774,7 @@ private fun QuickButton(a: QuickAction, context: Context, modifier: Modifier) {
         QuickAction.CAMERA -> Icons.Rounded.PhotoCamera
         QuickAction.LOCK -> Ios.lock
         QuickAction.TIMER -> Ios.timer
+        QuickAction.SILENT -> Ios.bell
     }
     PillButton(icon, a.short, modifier) {
         when (a) {
@@ -782,6 +796,7 @@ private fun QuickButton(a: QuickAction, context: Context, modifier: Modifier) {
                 Controls.lockScreen()
             }
             QuickAction.TIMER -> Controls.startTimer(SettingsRepo.current.timerMinutes)
+            QuickAction.SILENT -> Controls.toggleSilentMode(context)
         }
     }
 }
