@@ -57,6 +57,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.HeartBroken
@@ -118,12 +119,10 @@ private val Dim = Color.White.copy(alpha = 0.55f)
 
 @Composable
 fun ExpandedContent(act: Act, s: IslandSettings, lyrics: Lyrics?, battery: BatteryInfo, width: Dp) {
-    // Фонарик, как в iOS 18, — не широкая плашка, а высокая карточка с лучом
     if (act is Act.TorchA) {
         TorchCard(act.t, s)
         return
     }
-    // Сверху — полоса камеры: содержимое начинается ниже выреза, чтобы он ничего не закрывал
     Box(Modifier.width(width).padding(start = 22.dp, end = 22.dp, top = cameraInset(s), bottom = 20.dp)) {
         when (act) {
             is Act.MediaA -> MediaExpanded(act.m, s, lyrics)
@@ -141,10 +140,6 @@ fun ExpandedContent(act: Act, s: IslandSettings, lyrics: Lyrics?, battery: Batte
     }
 }
 
-/**
- * Плеер — как в ролике: обложка 60, название 18 и исполнитель, справа волна; строка текста песни
- * заливается белым по мере пения; время по краям тонкой полосы и три кнопки посередине.
- */
 @Composable
 private fun MediaExpanded(m: MediaInfo, s: IslandSettings, lyrics: Lyrics?) {
     val context = LocalContext.current
@@ -173,7 +168,6 @@ private fun MediaExpanded(m: MediaInfo, s: IslandSettings, lyrics: Lyrics?) {
             Spacer(Modifier.height(14.dp))
             KaraokeLine(lines, pos, s)
         } else if (s.lyricsEnabled && status?.first == m.key) {
-            // Видно, что текст ищется или его нет — а не что функция сломалась
             Spacer(Modifier.height(12.dp))
             Text(
                 if (status?.second == LyricsStatus.LOADING) tr("Ищу текст песни…", "Looking for lyrics…") else tr("Текст песни не найден", "No lyrics found"),
@@ -181,7 +175,6 @@ private fun MediaExpanded(m: MediaInfo, s: IslandSettings, lyrics: Lyrics?) {
             )
         }
 
-        // Время по краям полосы, как на iPhone и в ролике
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(formatDuration(pos), color = Tints.Gray, fontSize = 11.sp, style = Digits.copy(fontWeight = FontWeight.Normal),
@@ -203,16 +196,10 @@ private fun MediaExpanded(m: MediaInfo, s: IslandSettings, lyrics: Lyrics?) {
     }
 }
 
-/**
- * Кнопки плеера сразу под полосой. Отдельно от полосы и времени: те обновляются 10 раз в секунду,
- * а кнопки при этом не перерисовываются.
- */
 @Composable
 private fun MediaControls(like: PlayerAction?, dislike: PlayerAction?, playing: Boolean) {
     val context = LocalContext.current
-    // Значки 28, 32 и 28, кнопки чуть больше значков — под палец
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        // «Нравится» и «Не нравится», если плеер их даёт (Яндекс Музыка и др.)
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             like?.let { a ->
                 RoundButton(if (a.on) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, size = 30.dp, bg = Color.Transparent,
@@ -231,14 +218,12 @@ private fun MediaControls(like: PlayerAction?, dislike: PlayerAction?, playing: 
             }
             RoundButton(Ios.forward, size = 44.dp, bg = Color.Transparent, iconScale = 0.636f) { Controls.next() }
         }
-        // Вывод звука — как кнопка AirPlay
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
             RoundButton(Ios.airplay, size = 36.dp, bg = Color.Transparent, fg = Dim, iconScale = 0.6f) { Controls.openOutput(context) }
         }
     }
 }
 
-/** Идущий разговор: аватар, имя, длительность и кнопка «завершить». */
 @Composable
 private fun CallExpanded(c: CallInfo) {
     val context = LocalContext.current
@@ -263,10 +248,6 @@ private fun CallExpanded(c: CallInfo) {
     }
 }
 
-/**
- * Текст песни, как в ролике: одна текущая строка, спетая часть белая, остальное — бледное. Заливка идёт
- * от начала строки до начала следующей; новая строка въезжает снизу.
- */
 @Composable
 private fun KaraokeLine(lyrics: Lyrics, pos: Long, s: IslandSettings) {
     val index = lyrics.indexAt(pos)
@@ -283,7 +264,6 @@ private fun KaraokeLine(lyrics: Lyrics, pos: Long, s: IslandSettings) {
         val start = line?.timeMs ?: 0L
         val end = lyrics.lines.getOrNull(i + 1)?.timeMs ?: (start + 4_000)
         val sung = if (line == null) 0f else ((pos - start).toFloat() / (end - start).coerceAtLeast(1)).coerceIn(0f, 1f)
-        // Заливка чуть опережает голос и доходит до конца строки к 85% её времени
         val chars = if (s.reduceEffects) text.length else (text.length * (sung / 0.85f).coerceAtMost(1f)).toInt()
         Text(
             buildAnnotatedString {
@@ -344,7 +324,6 @@ private fun SeekBar(
     }
 }
 
-/** Таймер как на iPhone: слева оранжевая «пауза» и серый крестик, справа «Таймер» и крупное время. */
 @Composable
 private fun TimerExpanded(t: TimerState, s: IslandSettings) {
     val now = rememberNow(200)
@@ -404,11 +383,6 @@ private fun StopwatchExpanded(w: StopwatchState) {
     }
 }
 
-/**
- * Фонарик — как в ролике: квадратная карточка, посередине жёлтый фонарик в мягком свечении, под ним
- * «Фонарик · 80%». Провести пальцем вверх или вниз — ярче или тусклее (если телефон это умеет): свечение
- * растёт и вспыхивает на каждом шаге. Нажатие — выключить.
- */
 @Composable
 private fun TorchCard(t: TorchState, s: IslandSettings) {
     val haptic = rememberHaptic()
@@ -417,7 +391,6 @@ private fun TorchCard(t: TorchState, s: IslandSettings) {
     LaunchedEffect(t.level) { level = t.level.toFloat() }
     val share = if (t.on) (if (max > 1) level / max else 1f) else 0f
     val intensity by animateFloatAsState(share, spring(dampingRatio = 0.7f, stiffness = 300f), label = "glow")
-    // Свечение «дышит», как в ролике
     val breath = rememberInfiniteTransition(label = "breath")
     val wave = if (s.reduceEffects) null else breath.animateFloat(0f, 1f, infiniteRepeatable(tween(1050, easing = LinearEasing)), label = "w")
     val flare = remember { Animatable(0f) }
@@ -455,7 +428,6 @@ private fun TorchCard(t: TorchState, s: IslandSettings) {
             },
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            // Жёлтое свечение за фонариком: круг 120 dp, ярче с яркостью фонарика и на каждом шаге
             val pulse = wave?.let { 0.85f + 0.15f * sin(it.value * 2 * Math.PI).toFloat() } ?: 1f
             val glow = (0.35f + 0.65f * intensity) * pulse * (1f + 0.4f * flare.value)
             val r = 60.dp.toPx() * (1f + 0.15f * flare.value)
@@ -481,7 +453,6 @@ private fun TorchCard(t: TorchState, s: IslandSettings) {
     }
 }
 
-/** Таймер или секундомер из Часов, звонок по VoIP и запись экрана или звука — запись красной волной и кнопкой «стоп». */
 @Composable
 private fun ChronoExpanded(c: ChronoInfo) {
     val context = LocalContext.current
@@ -492,7 +463,6 @@ private fun ChronoExpanded(c: ChronoInfo) {
             Spacer(Modifier.width(14.dp))
             Text(formatDuration(c.elapsed(now)), color = Tints.Red, fontSize = 22.sp, style = Digits)
             Spacer(Modifier.width(14.dp))
-            // Белое кольцо с красным квадратом — как кнопка «стоп» диктофона на iPhone
             Box(
                 Modifier
                     .size(44.dp)
@@ -506,7 +476,6 @@ private fun ChronoExpanded(c: ChronoInfo) {
         }
         return
     }
-    // «Часы» — с кнопками, как свой таймер; другие приложения с отсчётом — просто время, нажатие открывает их
     if (c.key.startsWith(ClockScreenReader.KEY_PREFIX) || c.pause != null || c.resume != null || ClockApps.isClock(context, c.pkg)) {
         ClockChrono(c)
         return
@@ -522,10 +491,6 @@ private fun ChronoExpanded(c: ChronoInfo) {
     }
 }
 
-/**
- * Таймер и секундомер «Часов» — с теми же кнопками, что свои: пауза или продолжить и сброс.
- * Кнопки нажимают кнопки «Часов» (см. ClockControl); нажатие на время открывает приложение.
- */
 @Composable
 private fun ClockChrono(c: ChronoInfo) {
     val context = LocalContext.current
@@ -556,7 +521,6 @@ private fun ClockChrono(c: ChronoInfo) {
     }
 }
 
-/** Волна записи: слева идут красные столбики, справа ждёт пунктир — как у диктофона в острове. */
 @Composable
 private fun RecordingWave(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "rec")
@@ -601,10 +565,6 @@ private fun ProgressExpanded(p: ProgressInfo) {
     }
 }
 
-/**
- * Навигатор, такси, доставка — как в ролике: слева круг со стрелкой, справа расстояние крупно, подсказка,
- * время прибытия цветом и маленькая кнопка «Открыть».
- */
 @Composable
 private fun LiveExpanded(l: LiveInfo) {
     val context = LocalContext.current
@@ -666,16 +626,11 @@ private fun ChargingExpanded(b: BatteryInfo) {
     }
 }
 
-/**
- * Раскрытый пустой остров: часы, заряд и кнопки, которые выбрали в «Поведении» (по умолчанию таймер,
- * секундомер и фонарик). Кнопок нет — только часы и заряд, остров компактный.
- */
 @Composable
 private fun IdleExpanded(s: IslandSettings, battery: BatteryInfo) {
     val context = LocalContext.current
     val now = rememberWallNow(1000)
     val time = DateFormat.getTimeFormat(context).format(Date(now))
-    // «Пятница, 24 октября» или «Friday, October 24» — на языке острова
     val date = SimpleDateFormat(if (Lang.en) "EEEE, MMMM d" else "EEEE, d MMMM", Lang.locale).format(Date(now))
         .replaceFirstChar { it.titlecase(Lang.locale) }
     val alarm by IslandBus.nextAlarm.collectAsState()
@@ -684,7 +639,6 @@ private fun IdleExpanded(s: IslandSettings, battery: BatteryInfo) {
             Column(Modifier.weight(1f)) {
                 Text(clockText(time, 36.sp), color = Color.White, fontSize = 36.sp, style = Digits)
                 Text(date, color = Dim, fontSize = 14.sp)
-                // Ближайший будильник в пределах суток — под датой, как на экране блокировки iPhone
                 alarm?.takeIf { it.triggerAt - now in 1..86_400_000L }?.let { a ->
                     Row(
                         Modifier.padding(top = 3.dp).clickable { openAlarm(context, a) },
@@ -719,13 +673,11 @@ private fun IdleExpanded(s: IslandSettings, battery: BatteryInfo) {
         if (actions.isEmpty() && s.customQuickApps.isEmpty()) return@Column
         Spacer(Modifier.height(16.dp))
         
-        // Объединяем стандартные действия и кастомные приложения для сетки
         val allActions = mutableListOf<Any>()
         actions.filter { it != QuickAction.TIMER }.forEach { allActions.add(it) }
         s.customQuickApps.forEach { allActions.add(it) }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Таймер от 1 до 99 минут
             if (QuickAction.TIMER in actions) Row(
                 Modifier.fillMaxWidth().clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).padding(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -747,7 +699,6 @@ private fun IdleExpanded(s: IslandSettings, battery: BatteryInfo) {
                 }
             }
             
-            // Остальные кнопки — по две в ряд
             allActions.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEach { item ->
@@ -794,7 +745,7 @@ private fun AppQuickButton(pkg: String, context: Context, modifier: Modifier) {
         if (icon != null) {
             DrawableImage(icon, Modifier.size(20.dp).clip(CircleShape))
         } else {
-            Icon(Ios.apps, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.Apps, null, tint = Color.White, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(8.dp))
         Text(appName, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
