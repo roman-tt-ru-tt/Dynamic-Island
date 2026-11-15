@@ -62,7 +62,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Прозрачная активность для включения экрана (без кастомной темы) -->
+        <!-- Прозрачная активность для включения экрана -->
         <activity
             android:name=".service.WakeActivity"
             android:exported="false"
