@@ -67,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -144,7 +145,6 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
             }
         }
 
-        // Круглая иконка, вписанная в остров
         is Act.AppA -> Box(
             Modifier.size(s.width.dp, s.height.dp),
             contentAlignment = Alignment.CenterStart,
@@ -153,7 +153,7 @@ fun CompactContent(act: Act, s: IslandSettings, wideWidth: Dp) {
                 drawable = act.icon,
                 modifier = Modifier
                     .padding(start = s.height.dp * 0.2f)
-                    .size(h * 0.65f) // Чуть больше стандартного
+                    .size(h * 0.65f)
                     .clip(CircleShape),
             )
         }
