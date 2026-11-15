@@ -4,7 +4,6 @@ import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.graphics.Rect
 import android.os.Build
 import android.provider.Settings
@@ -24,7 +23,6 @@ object Controls {
     var torchOff: () -> Unit = {}
     var torchLevel: (Int) -> Unit = {}
 
-    // Метод для закрытия уведомления в системе
     var dismissNotification: (String) -> Unit = {}
 
     fun expand(id: String) {
@@ -36,8 +34,6 @@ object Controls {
         IslandBus.expanded.value = false
         IslandBus.focus.value = null
     }
-
-    // Плеер
 
     fun playerAction(action: String) {
         mediaController?.transportControls?.sendCustomAction(action, null)
@@ -60,8 +56,6 @@ object Controls {
     fun seekTo(ms: Long) {
         mediaController?.transportControls?.seekTo(ms)
     }
-
-    // Таймер
 
     fun startTimer(minutes: Int) {
         val total = minutes.coerceIn(1, 99) * 60_000L
@@ -91,8 +85,6 @@ object Controls {
         if (IslandBus.focus.value == "timer") collapse()
     }
 
-    // Секундомер
-
     fun startStopwatch() {
         IslandBus.stopwatch.value = StopwatchState(SystemClock.elapsedRealtime(), 0)
     }
@@ -109,8 +101,6 @@ object Controls {
         if (IslandBus.focus.value == "stopwatch") collapse()
     }
 
-    // Прочее
-
     fun openApp(context: Context, pkg: String) {
         val intent = context.packageManager.getLaunchIntentForPackage(pkg) ?: return
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -118,19 +108,21 @@ object Controls {
         collapse()
     }
 
-    /** Открыть приложение в режиме «Картинка в картинке» (PiP), если оно это поддерживает. */
-    fun openInPip(context: Context, pkg: String) {
+    /** Проверяет, поддерживает ли приложение PiP, через список activities. */
+    fun supportsPip(context: Context, pkg: String): Boolean = runCatching {
         val pm = context.packageManager
-        val supportsPip = runCatching {
-            val info = pm.getApplicationInfo(pkg, 0)
-            (info.flags and ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
-        }.getOrDefault(false)
-        
-        if (!supportsPip) {
+        val info = pm.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES)
+        info.activities?.any { it.supportsPictureInPicture } == true
+    }.getOrDefault(false)
+
+    /** Открыть приложение в режиме «Картинка в картинке» (PiP). */
+    fun openInPip(context: Context, pkg: String) {
+        if (!supportsPip(context, pkg)) {
             openApp(context, pkg)
             return
         }
         
+        val pm = context.packageManager
         val intent = pm.getLaunchIntentForPackage(pkg) ?: return
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         
@@ -170,8 +162,6 @@ object Controls {
             action.intent.send(context, 0, fill)
         }.isSuccess
     }
-
-    // Звонки
 
     @Suppress("DEPRECATION", "MissingPermission")
     fun answerCall(context: Context, call: CallInfo) {
