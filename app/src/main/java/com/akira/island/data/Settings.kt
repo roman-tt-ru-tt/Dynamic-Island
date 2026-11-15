@@ -100,10 +100,7 @@ data class IslandSettings(
     val cardCharging: Boolean = true,
     val cardCall: Boolean = true,
     val cardMessages: Boolean = true,
-    /** Показывать уведомления приложений в острове (в дополнение к шторке) */
-    val msgInIsland: Boolean = true,
     val cardAppIcon: Boolean = true,
-    val screenshotPulse: Boolean = true,
     
     val msgActions: Boolean = true,
     val cardLive: Boolean = true,
@@ -197,7 +194,6 @@ data class IslandSettings(
     // Поведение
     val hideIdle: Boolean = false,
     val hideInLandscape: Boolean = false,
-    val keepUpright: Boolean = false,
     val hideWhenPlayerOpen: Boolean = true,
     val scheduleOn: Boolean = false,
     val scheduleFrom: Int = 10,
@@ -212,6 +208,7 @@ data class IslandSettings(
     val keepAlive: Boolean = false,
     val msgLines: Int = 3,
     val msgInApp: Boolean = false,
+    val msgInIsland: Boolean = true,
     val msgChannels: Map<String, String> = emptyMap(),
     val bannerHintHidden: Boolean = false,
 ) {
