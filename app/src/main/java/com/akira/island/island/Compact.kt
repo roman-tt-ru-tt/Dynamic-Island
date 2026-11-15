@@ -123,7 +123,7 @@ fun callHeight(s: IslandSettings): Dp = (s.height.dp * 2.27f).coerceAtLeast(76.d
 fun cameraInset(s: IslandSettings): Dp = s.height.dp * 0.5f + 11.5.dp
 
 @Composable
-private fun DrawableImage(drawable: Drawable, modifier: Modifier = Modifier) {
+fun DrawableImage(drawable: Drawable, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         drawable.setBounds(0, 0, size.width.toInt(), size.height.toInt())
         drawable.draw(drawContext.canvas.nativeCanvas)
