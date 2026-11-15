@@ -1,7 +1,6 @@
 package com.akira.island.ui.screens
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -16,16 +15,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Circle
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.FlashlightOn
+import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.ScreenLockRotation
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Screenshot
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.UnfoldLess
@@ -33,10 +36,6 @@ import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material.icons.rounded.ScreenRotation
-import androidx.compose.material.icons.rounded.ScreenLockRotation
-import androidx.compose.material.icons.rounded.Circle
-import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,11 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
 import com.akira.island.data.QuickAction
@@ -64,18 +61,15 @@ import com.akira.island.ui.GroupSlider
 import com.akira.island.ui.GroupToggle
 import com.akira.island.ui.Page
 import com.akira.island.ui.Pos
-import com.akira.island.ui.Screen
 import com.akira.island.ui.SectionHeader
 import com.akira.island.ui.Tile
-import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 fun BehaviorScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val s by SettingsRepo.state.collectAsState()
     var collapseDialog by remember { mutableStateOf(false) }
-    
-    // Лончер для выбора приложения
+
     val appPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val pkg = result.data?.`package`?.toString() ?: return@rememberLauncherForActivityResult
         if (pkg != context.packageName && !s.customQuickApps.contains(pkg)) {
@@ -150,9 +144,6 @@ fun BehaviorScreen(onBack: () -> Unit) {
                                 val pm = context.packageManager
                                 pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
                             }.getOrDefault(pkg)
-                        }
-                        val icon = remember(pkg) {
-                            runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
                         }
                         
                         GroupItem(
