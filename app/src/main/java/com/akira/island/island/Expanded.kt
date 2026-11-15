@@ -728,29 +728,16 @@ private fun AppQuickButton(pkg: String, context: Context, modifier: Modifier) {
     val icon = remember(pkg) {
         runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
     }
-    val hasPip = remember(pkg) {
-        Controls.supportsPip(context, pkg)
-    }
     val haptic = rememberHaptic()
     
     Row(
         modifier
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.14f))
-            .pointerInput(pkg) {
-                detectTapGestures(
-                    onTap = {
-                        haptic()
-                        Controls.collapse()
-                        Controls.openApp(context, pkg)
-                    },
-                    onLongPress = if (hasPip) {
-                        {
-                            haptic()
-                            Controls.openInPip(context, pkg)
-                        }
-                    } else null
-                )
+            .clickable {
+                haptic()
+                Controls.collapse()
+                Controls.openApp(context, pkg)
             }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -797,4 +784,4 @@ private fun QuickButton(a: QuickAction, context: Context, modifier: Modifier) {
             QuickAction.TIMER -> Controls.startTimer(SettingsRepo.current.timerMinutes)
         }
     }
-} 
+}
