@@ -100,6 +100,8 @@ data class IslandSettings(
     val cardCharging: Boolean = true,
     val cardCall: Boolean = true,
     val cardMessages: Boolean = true,
+    /** Показывать уведомления приложений в острове (в дополнение к шторке) */
+    val msgInIsland: Boolean = true,
     val cardAppIcon: Boolean = true,
     val screenshotPulse: Boolean = true,
     
@@ -206,7 +208,6 @@ data class IslandSettings(
     val bubble: Boolean = true,
     val idleExpand: Boolean = true,
     val quickActions: List<QuickAction> = listOf(QuickAction.TIMER, QuickAction.STOPWATCH, QuickAction.FLASHLIGHT),
-    /** Пользовательские приложения в быстрых действиях (TikTok, YouTube и т.д.) */
     val customQuickApps: List<String> = emptyList(),
     val keepAlive: Boolean = false,
     val msgLines: Int = 3,
