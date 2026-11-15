@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.akira.island.R
+import com.akira.island.core.AppLog
 import com.akira.island.core.IslandBus
 import com.akira.island.core.Lang
 import com.akira.island.core.Notice
@@ -73,9 +74,15 @@ object UpdateChecker {
         if (!force && (!s.autoUpdateCheck || now - s.lastUpdateCheck < CHECK_EVERY_MS)) return
         if (state.value is UpdateState.Checking) return
         state.value = UpdateState.Checking
+        AppLog.log("Update", "Проверка обновлений: force=$force, repo=$REPO, текущая=${currentVersion(context)}")
         val result = runCatching { withContext(Dispatchers.IO) { fetchLatest() } }
         if (result.isSuccess) SettingsRepo.update { copy(lastUpdateCheck = now) }
         val release = result.getOrNull()
+        if (result.isFailure) {
+            AppLog.logException("Update", result.exceptionOrNull()!!)
+        } else {
+            AppLog.log("Update", "Ответ GitHub: ${release?.version ?: "нет релиза"}")
+        }
         state.value = when {
             result.isFailure -> if (force) UpdateState.Error(
                 tr("Нет связи с GitHub. Проверьте интернет и попробуйте ещё раз.", "Can't reach GitHub. Check your internet connection and try again."),
@@ -147,6 +154,7 @@ object UpdateChecker {
     }
 
     suspend fun downloadAndInstall(context: Context, release: Release) {
+        AppLog.log("Update", "Скачивание ${release.version} с ${release.apkUrl}")
         val url = release.apkUrl
         if (url == DEMO_APK) {
             if (download.value is DownloadState.Running) return
@@ -177,6 +185,7 @@ object UpdateChecker {
                     setRequestProperty("User-Agent", "DynamicIsland-Android")
                 }
                 try {
+                    AppLog.log("Update", "HTTP ${conn.responseCode}")
                     if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
                     val total = conn.contentLengthLong.takeIf { it > 0 } ?: release.sizeBytes
                     var done = 0L
@@ -212,10 +221,12 @@ object UpdateChecker {
         }
         val file = result.getOrNull()
         if (file == null) {
+            AppLog.logException("Update", result.exceptionOrNull()!!)
             download.value = DownloadState.Failed(tr("Не удалось скачать. Проверьте интернет и попробуйте ещё раз.",
                 "Couldn't download. Check your internet and try again."))
             return
         }
+        AppLog.log("Update", "Скачано в ${file.absolutePath}")
         download.value = DownloadState.Ready(file)
         install(context, file)
     }
@@ -223,6 +234,7 @@ object UpdateChecker {
     fun install(context: Context, file: File) {
         runCatching {
             if (!context.packageManager.canRequestPackageInstalls()) {
+                AppLog.log("Update", "Нет разрешения на установку APK")
                 context.startActivity(
                     Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -230,6 +242,7 @@ object UpdateChecker {
                 return
             }
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            AppLog.log("Update", "Запуск установщика: $uri")
             context.startActivity(
                 Intent(Intent.ACTION_VIEW)
                     .setDataAndType(uri, "application/vnd.android.package-archive")
@@ -239,6 +252,7 @@ object UpdateChecker {
     }
 
     private fun fetchLatest(): Release? {
+        AppLog.log("Update", "GET https://api.github.com/repos/$REPO/releases/latest")
         val conn = (URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000
@@ -246,9 +260,21 @@ object UpdateChecker {
             setRequestProperty("User-Agent", "DynamicIsland-Android")
         }
         try {
-            if (conn.responseCode == 404) return null
-            if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
-            return parseRelease(conn.inputStream.bufferedReader().use { it.readText() })
+            AppLog.log("Update", "HTTP ${conn.responseCode}")
+            if (conn.responseCode == 404) {
+                AppLog.log("Update", "404 — репозиторий или релиз не найден")
+                return null
+            }
+            if (conn.responseCode !in 200..299) {
+                AppLog.log("Update", "Ошибка HTTP: ${conn.responseCode} ${conn.responseMessage}")
+                error("HTTP ${conn.responseCode}")
+            }
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            AppLog.log("Update", "Получено ${body.length} байт")
+            return parseRelease(body)
+        } catch (e: Exception) {
+            AppLog.logException("Update", e)
+            throw e
         } finally {
             conn.disconnect()
         }
