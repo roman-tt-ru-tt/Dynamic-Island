@@ -4,7 +4,7 @@ import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.pm.ApplicationInfo
 import android.graphics.Rect
 import android.os.Build
 import android.provider.Settings
@@ -39,7 +39,6 @@ object Controls {
 
     // Плеер
 
-    /** Своя кнопка плеера — «Нравится» или «Не нравится». */
     fun playerAction(action: String) {
         mediaController?.transportControls?.sendCustomAction(action, null)
     }
@@ -123,7 +122,8 @@ object Controls {
     fun openInPip(context: Context, pkg: String) {
         val pm = context.packageManager
         val supportsPip = runCatching {
-            (pm.getApplicationInfo(pkg, 0).flags and PackageManager.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
+            val info = pm.getApplicationInfo(pkg, 0)
+            (info.flags and ApplicationInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0
         }.getOrDefault(false)
         
         if (!supportsPip) {
@@ -136,9 +136,7 @@ object Controls {
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val options = ActivityOptions.makeBasic()
-            runCatching { 
-                options.setLaunchBounds(Rect(0, 0, 400, 400)) 
-            }
+            runCatching { options.setLaunchBounds(Rect(0, 0, 400, 400)) }
             runCatching { context.startActivity(intent, options.toBundle()) }
                 .onFailure { openApp(context, pkg) }
         } else {
@@ -147,7 +145,6 @@ object Controls {
         collapse()
     }
 
-    /** Нажать кнопку из уведомления (ответить, отклонить, открыть). */
     fun send(context: Context, intent: PendingIntent?): Boolean {
         intent ?: return false
         return runCatching {
@@ -161,7 +158,6 @@ object Controls {
         }.isSuccess
     }
 
-    /** Отправить ответ через кнопку «Ответить» из уведомления — так же, как это делает шторка. */
     fun sendReply(context: Context, action: MsgAction, text: String): Boolean {
         val clean = text.trim()
         if (clean.isEmpty() || action.inputs.isEmpty()) return false
