@@ -108,14 +108,16 @@ object Controls {
         collapse()
     }
 
-    /** Проверяет, поддерживает ли приложение PiP, через список activities. */
-    fun supportsPip(context: Context, pkg: String): Boolean = runCatching {
-        val pm = context.packageManager
-        val info = pm.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES)
-        info.activities?.any { it.supportsPictureInPicture } == true
-    }.getOrDefault(false)
+    /** Проверяет, поддерживает ли приложение PiP, через флаг ApplicationInfo (числовое значение 0x00400000). */
+    fun supportsPip(context: Context, pkg: String): Boolean {
+        return runCatching {
+            val pm = context.packageManager
+            val info = pm.getApplicationInfo(pkg, 0)
+            // FLAG_SUPPORTS_PICTURE_IN_PICTURE = 0x00400000
+            (info.flags and 0x00400000) != 0
+        }.getOrDefault(false)
+    }
 
-    /** Открыть приложение в режиме «Картинка в картинке» (PiP). */
     fun openInPip(context: Context, pkg: String) {
         if (!supportsPip(context, pkg)) {
             openApp(context, pkg)
