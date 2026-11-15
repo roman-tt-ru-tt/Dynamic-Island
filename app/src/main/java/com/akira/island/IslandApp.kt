@@ -3,6 +3,7 @@ package com.akira.island
 import android.app.Application
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import com.akira.island.core.AppLog
 import com.akira.island.core.IslandBus
 import com.akira.island.data.SettingsRepo
 import com.akira.island.ui.SetTimerActivity
@@ -13,7 +14,10 @@ import kotlinx.coroutines.launch
 class IslandApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        AppLog.init(this)
+        AppLog.log("App", "Application started")
         SettingsRepo.init(this)
+        
         // «Таймер от помощника»: выключено — остров не предлагается в списке, когда просят поставить таймер
         IslandBus.scope.launch {
             SettingsRepo.state.map { it.timerFromAssistant }.distinctUntilChanged().collect { on ->
