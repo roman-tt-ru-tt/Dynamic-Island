@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Screenshot
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.Vibration
@@ -82,7 +83,7 @@ fun BehaviorScreen(onBack: () -> Unit) {
                     "The island stays at the top even if the screen rotates horizontally"),
                 s.keepUpright, color = Tile.Indigo) { v -> SettingsRepo.update { copy(keepUpright = v) } }
             
-            // Новая кнопка "Настройка острова"
+            // Кнопка "Настроить остров"
             GroupItem(
                 Pos.Middle,
                 Icons.Rounded.Tune,
