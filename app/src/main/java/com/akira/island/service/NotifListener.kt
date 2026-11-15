@@ -18,6 +18,10 @@ import com.akira.island.core.LiveKind
 import com.akira.island.core.ProgressInfo
 import com.akira.island.data.SettingsRepo
 
+/**
+ * Доступ к уведомлениям даёт две вещи: медиасессии всех плееров
+ * и уведомления с прогрессом или секундомером (загрузки, Часы, звонки).
+ */
 class NotifListener : NotificationListenerService() {
     private var media: MediaMonitor? = null
 
@@ -215,3 +219,66 @@ object NotificationParser {
         pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
     }.getOrDefault(pkg)
 }
+
+/** Приложения, чьи постоянные уведомления остров показывает как «живые активности». */
+object LiveApps {
+    private val nav = setOf(
+        "com.google.android.apps.maps",
+        "ru.yandex.yandexmaps",
+        "ru.yandex.yandexnavi",
+        "ru.dublgis.dgismobile",
+        "com.waze",
+        "net.osmand",
+        "net.osmand.plus",
+        "com.here.app.maps",
+        "cz.seznam.mapy",
+        "app.organicmaps",
+        "com.mapswithme.maps.pro",
+    )
+    private val ride = setOf(
+        "ru.yandex.taxi",
+        "com.yandex.go",
+        "com.ubercab",
+        "ee.mtakso.client",
+        "ru.citymobil",
+        "sinet.startup.indriver",
+        "com.lyft.android",
+    )
+    private val delivery = setOf(
+        "ru.yandex.eda",
+        "ru.foodfox.client",
+        "ru.samokat.app",
+        "ru.instamart",
+        "ru.sbermarket",
+        "com.deliveryclub",
+        "com.ubercab.eats",
+        "ru.ozon.app.android",
+        "com.wildberries.ru",
+        "ru.beru.android",
+    )
+
+    fun kind(pkg: String, category: String?): LiveKind? = when {
+        pkg in nav || category == Notification.CATEGORY_NAVIGATION -> LiveKind.NAV
+        pkg in ride -> LiveKind.RIDE
+        pkg in delivery -> LiveKind.DELIVERY
+        else -> null
+    }
+}
+
+/**
+ * Подписи кнопок звонка на разных языках.
+ */
+private val AnswerWords = listOf(
+    "ответ", "принять", "answer", "accept", "trả lời", "nghe", "jawab", "terima", "angkat", "contestar", "responder",
+    "atender", "aceptar", "aceitar", "รับสาย", "cevapla", "yanıtla", "kabul", "annehmen", "répondre", "rispondi", "accetta",
+    "odbierz", "відповісти", "прийняти", "sagutin", "接听", "接聽", "応答", "응답", "받기",
+)
+private val DeclineWords = listOf(
+    "отклон", "сброс", "decline", "reject", "dismiss", "từ chối", "tolak", "rechazar", "recusar", "rejeitar", "ปฏิเสธ",
+    "reddet", "ablehnen", "refuser", "rifiuta", "odrzuć", "відхилити", "tanggihan", "拒接", "拒絕", "拒否", "거절",
+)
+private val HangUpWords = listOf(
+    "заверш", "положить", "hang", "end call", "kết thúc", "gác máy", "akhiri", "colgar", "finalizar", "desligar",
+    "encerrar", "วางสาย", "kapat", "auflegen", "beenden", "raccrocher", "riaggancia", "zakończ", "завершити", "ibaba",
+    "挂断", "掛斷", "終了", "종료",
+)
