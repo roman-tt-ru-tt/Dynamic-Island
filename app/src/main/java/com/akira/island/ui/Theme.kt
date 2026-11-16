@@ -5,7 +5,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-/** Тёмная тема с лавандовым акцентом, как на скриншотах. */
 object Ui {
     val Bg = Color(0xFF16151B)
     val Card = Color(0xFF27262D)
@@ -18,9 +17,18 @@ object Ui {
     val Nav = Color(0xFF25242B)
     val Pink = Color(0xFFFBDDF4)
     val Outline = Color(0xFF908D99)
+
+    // iOS-переключатель
+    val SwitchOn = Color(0xFF34C759)
+    val SwitchOff = Color(0xFF3A3A3C)
+    val SwitchThumb = Color.White
+
+    // Liquid Glass
+    val GlassTint = Color(0xCCFFFFFF)
+    val GlassEdge = Color(0x33FFFFFF)
+    val GlassShadow = Color(0x80000000)
 }
 
-/** Цвета значков у пунктов настроек — как в «Настройках» iPhone: у каждой категории свой. */
 object Tile {
     val Blue = Color(0xFF0A84FF)
     val Green = Color(0xFF34C759)
