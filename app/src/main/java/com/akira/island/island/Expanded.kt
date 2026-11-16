@@ -767,6 +767,26 @@ private fun AppQuickButton(pkg: String, context: Context, modifier: Modifier) {
 
 @Composable
 private fun QuickButton(a: QuickAction, context: Context, modifier: Modifier) {
+    // Для «Без звука» проверяем реальное состояние звука
+    val audio = remember(context) { context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
+    val ringerMode by remember { mutableStateOf(audio.ringerMode) }
+    // Обновляем при каждой композиции (перерисовке) — так значок меняется, когда остров перерисовался
+    LaunchedEffect(Unit) {
+        while (true) {
+            ringerMode == audio.ringerMode
+            kotlinx.coroutines.delay(500)
+        }
+    }
+    // Переменная для реактивности
+    var currentMode by remember { mutableStateOf(audio.ringerMode) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentMode = audio.ringerMode
+            kotlinx.coroutines.delay(500)
+        }
+    }
+    val silent = currentMode != android.media.AudioManager.RINGER_MODE_NORMAL
+    
     val icon = when (a) {
         QuickAction.STOPWATCH -> Ios.stopwatch
         QuickAction.FLASHLIGHT -> Ios.flashlight
@@ -774,9 +794,13 @@ private fun QuickButton(a: QuickAction, context: Context, modifier: Modifier) {
         QuickAction.CAMERA -> Icons.Rounded.PhotoCamera
         QuickAction.LOCK -> Ios.lock
         QuickAction.TIMER -> Ios.timer
-        QuickAction.SILENT -> Ios.bell
+        QuickAction.SILENT -> if (silent) Ios.bell else Ios.bell
     }
-    PillButton(icon, a.short, modifier) {
+    val fg = when (a) {
+        QuickAction.SILENT -> if (silent) Color(0xFFFF453A) else Color.White
+        else -> Color.White
+    }
+    PillButton(icon, a.short, modifier, fg = fg) {
         when (a) {
             QuickAction.STOPWATCH -> {
                 Controls.startStopwatch()
