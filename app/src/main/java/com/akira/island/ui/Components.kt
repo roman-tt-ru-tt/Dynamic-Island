@@ -1,7 +1,12 @@
 package com.akira.island.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -37,16 +43,17 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.Color
@@ -57,29 +64,51 @@ import androidx.compose.ui.unit.sp
 import com.akira.island.core.tr
 
 @Composable
-fun IslandSwitch(checked: Boolean, onChange: (Boolean) -> Unit, enabled: Boolean = true) {
-    Switch(
-        checked = checked,
-        onCheckedChange = onChange,
-        enabled = enabled,
-        thumbContent = {
-            Icon(
-                if (checked) Icons.Rounded.Check else Icons.Rounded.Close,
-                contentDescription = null,
-                modifier = Modifier.size(SwitchDefaults.IconSize),
-            )
-        },
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = Ui.OnPrimary,
-            checkedTrackColor = Ui.Primary,
-            checkedIconColor = Ui.Primary,
-            checkedBorderColor = Ui.Primary,
-            uncheckedThumbColor = Ui.Outline,
-            uncheckedTrackColor = Ui.Bg,
-            uncheckedBorderColor = Ui.Outline,
-            uncheckedIconColor = Ui.Bg,
-        ),
+fun IslandSwitch(
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
+    val haptic = rememberHaptic()
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 20.dp else 0.dp,
+        animationSpec = spring(dampingRatio = 0.65f, stiffness = 500f),
+        label = "thumb",
     )
+    val trackColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> Ui.Outline.copy(alpha = 0.3f)
+            checked -> Ui.SwitchOn
+            else -> Ui.SwitchOff
+        },
+        animationSpec = tween(220),
+        label = "track",
+    )
+    Box(
+        Modifier
+            .size(width = 51.dp, height = 31.dp)
+            .alpha(if (enabled) 1f else 0.5f)
+            .clip(CircleShape)
+            .background(trackColor)
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptic()
+                onChange(!checked)
+            }
+            .padding(2.dp),
+    ) {
+        Box(
+            Modifier
+                .offset(x = thumbOffset)
+                .size(27.dp)
+                .shadow(2.dp, CircleShape, clip = false)
+                .clip(CircleShape)
+                .background(Color.White),
+        )
+    }
 }
 
 /** Страница: крупный заголовок, кнопка «назад» и действие справа. */
@@ -161,7 +190,6 @@ fun SectionHeader(text: String, trailing: (@Composable () -> Unit)? = null) {
     }
 }
 
-/** Отдельная карточка с иконкой в подложке и переключателем (экран карточек и событий). */
 @Composable
 fun ToggleCard(
     icon: ImageVector,
@@ -216,13 +244,11 @@ private fun Pos.shape(): Shape = when (this) {
     Pos.Last -> RoundedCornerShape(6.dp, 6.dp, 28.dp, 28.dp)
 }
 
-/** Склеенные строки настроек: одна карточка со скруглением сверху и снизу. */
 @Composable
 fun Group(content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp), content = content)
 }
 
-/** Значок пункта: белый на цветном скруглённом квадрате, как в «Настройках» iPhone; без цвета — просто значок. */
 @Composable
 fun ItemIcon(icon: ImageVector, color: Color?, size: Dp = 36.dp) {
     if (color == null) {
@@ -258,7 +284,6 @@ fun GroupItem(
         ItemIcon(icon, color)
         Spacer(Modifier.width(if (color != null) 16.dp else 22.dp))
         Column(Modifier.weight(1f)) {
-            // Метка переносится на следующую строку целиком, а название не разрывается
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(title, color = Ui.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 21.sp,
                     modifier = Modifier.align(Alignment.CenterVertically))
@@ -287,7 +312,6 @@ fun GroupToggle(
     GroupItem(pos, icon, title, subtitle, color = color, badge = badge, onClick = { onChange(!checked) }) { IslandSwitch(checked, onChange) }
 }
 
-/** Маленькая метка рядом с названием, например «Экспериментальный». */
 @Composable
 fun Badge(text: String, modifier: Modifier = Modifier, color: Color = Tile.Orange) {
     Text(
@@ -301,7 +325,6 @@ fun Badge(text: String, modifier: Modifier = Modifier, color: Color = Tile.Orang
     )
 }
 
-/** Круглая кнопка со значком в шапке страницы — в пару к кнопке «Назад», не отнимает место у заголовка. */
 @Composable
 fun IconAction(icon: ImageVector, description: String, onClick: () -> Unit) {
     Box(
@@ -351,7 +374,6 @@ fun GroupSlider(
     }
 }
 
-/** Строка с ползунком и кнопками ±1 по краям — для точной подгонки размеров. */
 @Composable
 fun GroupStepSlider(
     pos: Pos,
