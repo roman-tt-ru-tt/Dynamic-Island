@@ -105,13 +105,8 @@ fun <T> fadeSpec(s: IslandSettings): FiniteAnimationSpec<T> = when (s.expandStyl
     else -> spring(stiffness = animStiffness(s) * 6f)
 }
 
-/** Жёсткость пружины в ролике (damping 12, stiffness 190, mass 0.85): остров перетекает за полсекунды с перелётом. */
 private const val VIDEO_STIFFNESS = 223f
 
-/**
- * «Длительность»: 0% — быстрее всего, 100% — медленнее всего. По умолчанию (35%) — ровно как в ролике;
- * в обе стороны жёсткость меняется в разы, поэтому ползунок заметен по всей длине.
- */
 fun animStiffness(s: IslandSettings): Float {
     val t = s.durationPercent.coerceIn(0, 100) / 100f
     return if (t <= 0.35f) {
@@ -121,15 +116,12 @@ fun animStiffness(s: IslandSettings): Float {
     }
 }
 
-/** Во сколько раз всё медленнее, чем в ролике: по ней же идут проявление содержимого и размытие. */
 fun motionScale(s: IslandSettings): Float = if (s.expandStyle == ExpandStyle.INSTANT) 0.5f else sqrt(VIDEO_STIFFNESS / animStiffness(s))
 
-/** Плавность из ролика: быстро в начале и долго мягко дотягивает (cubic-bezier 0.16, 1, 0.3, 1). */
 val ExpoOut = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
 
 fun animDurationMs(s: IslandSettings): Int = 160 + s.durationPercent.coerceIn(0, 100) * 6
 
-/** Текущее время (elapsedRealtime) с обновлением раз в [periodMs]; пока экран погашен — не обновляется. */
 @Composable
 fun rememberNow(periodMs: Long, active: Boolean = true): Long {
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -143,13 +135,6 @@ fun rememberNow(periodMs: Long, active: Boolean = true): Long {
     return now
 }
 
-/**
- * Время для живых украшений — эквалайзера, свечения: обновляется с частотой из «Эффектов» (по умолчанию 60 раз
- * в секунду) и только пока горит экран. Музыка играет часами, и с полной частотой экрана остров перерисовывался бы
- * до 120 раз в секунду всё это время — телефон грелся. 60 кадров на глаз так же плавно, а работы вдвое меньше.
- * Между кадрами корутина спит почти до следующего нужного, а не просыпается на каждом кадре экрана.
- * Читать значение нужно при рисовании, тогда меняется только картинка.
- */
 @Composable
 fun rememberFxClock(active: Boolean): State<Long> {
     val time = remember { mutableLongStateOf(0L) }
@@ -159,7 +144,6 @@ fun rememberFxClock(active: Boolean): State<Long> {
             if (!IslandBus.screenOn.value) IslandBus.screenOn.first { it }
             val fps = SettingsRepo.current.fxRate.fps
             val step = if (fps > 0) 1000L / fps else 0L
-            // Кадр экрана раньше срока пропускаем: на 120 Гц при 60 кадрах рисуется каждый второй
             withFrameMillis { t ->
                 if (t - last >= step - 3) {
                     time.longValue = t
@@ -172,16 +156,11 @@ fun rememberFxClock(active: Boolean): State<Long> {
     return time
 }
 
-/**
- * Значение «туда-обратно» за [halfMs] в каждую сторону с плавным разгоном и торможением — как
- * infiniteRepeatable(tween(halfMs, FastOutSlowInEasing), RepeatMode.Reverse), но от общего времени [t].
- */
 fun pingPong(t: Long, halfMs: Int): Float {
     val p = (t % (2L * halfMs)).toFloat() / halfMs
     return FastOutSlowInEasing.transform(if (p < 1f) p else 2f - p)
 }
 
-/** То же для настенных часов (System.currentTimeMillis). */
 @Composable
 fun rememberWallNow(periodMs: Long): Long {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -203,18 +182,11 @@ fun rememberHaptic(): () -> Unit {
     }
 }
 
-/**
- * Звуковая волна из тонких полосок, как в острове iPhone. Полоски тоньше промежутков и качаются спокойно:
- * толстые и быстрые, как писали в комментариях, смотрятся плохо, особенно под медленную музыку. У каждой полоски
- * две свои скорости, поэтому движение не механическое. Высоты читаются только при рисовании:
- * кадр анимации перерисовывает полоски, а не пересобирает остров.
- */
 @Composable
 fun Equalizer(color: Color, playing: Boolean, animate: Boolean, modifier: Modifier = Modifier, bars: Int = 5) {
     val moving = playing && animate
     val time = rememberFxClock(moving)
     Canvas(modifier) {
-        // Промежуток в 1,6 раза шире полоски
         val w = size.width / (bars + (bars - 1) * 1.6f)
         for (i in 0 until bars) {
             val h = when {
@@ -236,7 +208,6 @@ fun Equalizer(color: Color, playing: Boolean, animate: Boolean, modifier: Modifi
     }
 }
 
-/** Батарейка как в iOS: заливка по уровню заряда и «носик» справа. */
 @Composable
 fun BatteryGlyph(level: Int, color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
@@ -319,7 +290,6 @@ fun RoundButton(
     onClick: () -> Unit,
 ) {
     val haptic = rememberHaptic()
-    // Кнопка чуть проседает под пальцем, как на iPhone
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.88f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "press")
@@ -364,8 +334,9 @@ fun PillButton(
 }
 
 /**
- * Liquid Glass по образцу iOS 26: стекло, которое ловит и преломляет свет.
- * Многослойное тело, цветной оттенок, блик, свечение кромки, дисперсия и размытие подложки.
+ * Liquid Glass по образцу iOS 26 — но **без размытия содержимого**.
+ * Всё «стекло» рисуется как фон под содержимым, а контент остаётся чётким.
+ * Поэтому размытие (BlurEffect) здесь НЕ применяется — иначе размывается и сам контент.
  */
 fun Modifier.glassSurface(
     shape: Shape,
@@ -381,7 +352,6 @@ fun Modifier.glassSurface(
         val outline = shape.createOutline(size, layoutDirection, this)
         val dp = 1.dp.toPx()
 
-        // Слои стекла
         val veil = Brush.verticalGradient(
             0f to Color.White.copy(alpha = 0.28f),
             0.15f to Color.White.copy(alpha = 0.12f),
@@ -408,13 +378,11 @@ fun Modifier.glassSurface(
         onDrawWithContent {
             val t = tilt().coerceIn(-1f, 1f)
 
-            // Тело стекла
             drawRect(base.copy(alpha = a * 0.65f))
             drawRect(veil)
             drawRect(tint)
             drawRect(shade)
 
-            // Свет сверху и каустика внизу
             drawRect(
                 Brush.radialGradient(
                     listOf(Color.White.copy(alpha = 0.34f), Color.Transparent),
@@ -430,7 +398,6 @@ fun Modifier.glassSurface(
                 ),
             )
 
-            // «Жидкий» блик
             val shine = sheen()
             if (shine in 0f..1f) {
                 val x = -w * 0.4f + w * 1.8f * shine
@@ -445,12 +412,10 @@ fun Modifier.glassSurface(
                 )
             }
 
-            // Свечение по кромке
             for (stroke in glow) drawOutline(outline, glowColor, style = stroke)
 
             drawContent()
 
-            // Кромка-линза
             val shift = t * w * 0.35f
             val rim = Brush.linearGradient(
                 0f to Color.White.copy(alpha = 0.95f),
@@ -464,7 +429,6 @@ fun Modifier.glassSurface(
             drawOutline(outline, rim, alpha = 0.4f, style = wideRim)
             drawOutline(outline, rim, style = thinRim)
 
-            // Дисперсия (цветная кайма)
             translate(-dp * 1.5f, -dp * 1.5f) {
                 drawOutline(outline, Color(0xFF7DF9FF).copy(alpha = 0.22f), style = fringe)
             }
@@ -473,24 +437,7 @@ fun Modifier.glassSurface(
             }
         }
     }
-    // Размытие подложки (Android 12+)
-    .then(
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            Modifier.graphicsLayer {
-                renderEffect = androidx.compose.ui.graphics.BlurEffect(
-                    12f,
-                    12f,
-                    androidx.compose.ui.graphics.TileMode.Decal,
-                )
-            }
-        } else Modifier,
-    )
 
-/**
- * Знак бесконтактной оплаты (Contactless Indicator, EMVCo) — тот самый, что печатают на терминалах
- * и картах: четыре дуги, растущие вправо. Как в ролике: дуги загораются по очереди изнутри наружу,
- * полный круг — 0,8 с.
- */
 @Composable
 fun ContactlessWaves(color: Color, animate: Boolean, modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "waves")
@@ -515,7 +462,6 @@ fun ContactlessWaves(color: Color, animate: Boolean, modifier: Modifier = Modifi
     }
 }
 
-/** Зелёный круг выпрыгивает с пружиной, следом прорисовывается галочка — как «Оплачено» в ролике. */
 @Composable
 fun CheckBadge(color: Color, animate: Boolean, modifier: Modifier = Modifier) {
     val pop = remember { Animatable(if (animate) 0f else 1f) }
@@ -542,10 +488,6 @@ fun CheckBadge(color: Color, animate: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Строка, которая уменьшает шрифт (от [max] до [min]), если не помещается, — вместо многоточия.
- * Многоточие остаётся на крайний случай: очень длинный текст или крупный шрифт Android.
- */
 @Composable
 fun FitText(
     text: String,
@@ -574,7 +516,6 @@ fun FitText(
     }
 }
 
-/** Цвет кнопок карточки уведомления по настройке: сиреневый, системный, из аватара или свой. */
 @Composable
 fun rememberAccent(s: IslandSettings, adaptive: Color? = null): Color {
     val context = LocalContext.current
@@ -588,7 +529,6 @@ fun resolveAccent(context: android.content.Context, s: IslandSettings, adaptive:
     AccentMode.SYSTEM -> systemAccent(context) ?: Tints.Lavender
 }
 
-/** Акцент обоев (Material You) — светлый тон 200, хорошо читается на чёрном. Только Android 12+. */
 fun systemAccent(context: android.content.Context): Color? =
     if (android.os.Build.VERSION.SDK_INT >= 31) {
         runCatching { Color(context.getColor(android.R.color.system_accent1_200)) }.getOrNull()
@@ -596,19 +536,13 @@ fun systemAccent(context: android.content.Context): Color? =
         null
     }
 
-/** Чем рисовать поверх [accent]: чёрным на светлом цвете, белым на тёмном. */
 fun onAccent(accent: Color): Color = if (accent.luminance() > 0.5f) Color(0xFF1B1830) else Color.White
 
-/**
- * Стрелка манёвра, как в навигаторе: прямо, налево, направо или разворот. Рисуется линией
- * со скруглёнными концами, поэтому одинаково чёткая в капсуле и в раскрытом виде.
- */
 @Composable
 fun TurnArrow(turn: Turn, color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val k = size.minDimension / 100f
         fun p(x: Float, y: Float) = Offset(x * k, y * k)
-        // Рисуем «направо», налево — зеркало по горизонтали
         val flip = turn == Turn.LEFT
         fun x(v: Float) = if (flip) 100f - v else v
         val body = Path()
