@@ -364,15 +364,8 @@ fun PillButton(
 }
 
 /**
- * Liquid Glass по образцу iOS 26: стекло, которое ловит и преломляет свет. Настоящего преломления
- * того, что лежит под островом, Android не даёт (поверх экрана нельзя «заглянуть» в чужое окно),
- * поэтому рисуется всё, что видно у настоящего стекла:
- *  - дымчатое полупрозрачное тело, светлее чёрной подложки, плотнее и темнее к низу (толщина);
- *  - пятно света сверху и каустика — светлое пятно у противоположного края, где свет собрало стекло;
- *  - мягкое свечение вдоль кромки и яркая линза-кромка: блики в верхнем левом и нижнем правом углу;
- *  - тонкая цветная дисперсия по краю (голубая и розовая каймы);
- *  - блики живут: при наклоне телефона ([tilt] от −1 до 1) они сдвигаются, а при смене содержимого
- *    по стеклу пробегает световая полоса ([sheen] от 0 до 1, иначе скрыта).
+ * Liquid Glass по образцу iOS 26: стекло, которое ловит и преломляет свет.
+ * Многослойное тело, цветной оттенок, блик, свечение кромки, дисперсия и размытие подложки.
  */
 fun Modifier.glassSurface(
     shape: Shape,
@@ -380,87 +373,118 @@ fun Modifier.glassSurface(
     opacity: Float,
     tilt: () -> Float = { 0f },
     sheen: () -> Float = { -1f },
-): Modifier = drawWithCache {
-    val w = size.width
-    val h = size.height
-    val a = opacity.coerceIn(0.3f, 0.95f)
-    val outline = shape.createOutline(size, layoutDirection, this)
-    val dp = 1.dp.toPx()
-    // Всё, что не зависит от наклона, собирается один раз на размер, а кадр только рисует
-    val veil = Brush.verticalGradient(
-        0f to Color.White.copy(alpha = 0.20f),
-        0.5f to Color.White.copy(alpha = 0.05f),
-        1f to Color.White.copy(alpha = 0.10f),
-    )
-    val shade = Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.28f))
-    val glow = List(7) { i -> Stroke(width = (i + 1) * 2 * dp) }
-    val glowColor = Color.White.copy(alpha = 0.035f)
-    val wideRim = Stroke(width = 10 * dp)
-    val thinRim = Stroke(width = 3.2f * dp)
-    val fringe = Stroke(width = 4 * dp)
+): Modifier = this
+    .drawWithCache {
+        val w = size.width
+        val h = size.height
+        val a = opacity.coerceIn(0.3f, 0.95f)
+        val outline = shape.createOutline(size, layoutDirection, this)
+        val dp = 1.dp.toPx()
 
-    onDrawWithContent {
-        val t = tilt().coerceIn(-1f, 1f)
-
-        // Тело стекла
-        drawRect(base.copy(alpha = a * 0.8f))
-        drawRect(veil)
-        drawRect(shade)
-
-        // Свет сверху и каустика у противоположного края
-        drawRect(
-            Brush.radialGradient(
-                listOf(Color.White.copy(alpha = 0.26f), Color.Transparent),
-                center = Offset(w * (0.22f + 0.30f * t), 0f),
-                radius = w * 0.55f,
-            ),
+        // Слои стекла
+        val veil = Brush.verticalGradient(
+            0f to Color.White.copy(alpha = 0.28f),
+            0.15f to Color.White.copy(alpha = 0.12f),
+            0.5f to Color.White.copy(alpha = 0.05f),
+            0.85f to Color.White.copy(alpha = 0.12f),
+            1f to Color.White.copy(alpha = 0.22f),
         )
-        drawRect(
-            Brush.radialGradient(
-                listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(w * (0.80f + 0.15f * t), h),
-                radius = w * 0.45f,
+        val tint = Brush.linearGradient(
+            listOf(
+                Color(0xFFB1AFFF).copy(alpha = 0.14f),
+                Color(0xFFFFB1E6).copy(alpha = 0.08f),
+                Color(0xFFA0E8FF).copy(alpha = 0.10f),
             ),
+            start = Offset(0f, 0f),
+            end = Offset(w, h),
         )
+        val shade = Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.32f))
+        val glow = List(7) { i -> Stroke(width = (i + 1) * 2 * dp) }
+        val glowColor = Color.White.copy(alpha = 0.045f)
+        val wideRim = Stroke(width = 12 * dp)
+        val thinRim = Stroke(width = 3.5f * dp)
+        val fringe = Stroke(width = 4.5f * dp)
 
-        // Бегущий блик при смене содержимого
-        val shine = sheen()
-        if (shine in 0f..1f) {
-            val x = -w * 0.3f + w * 1.6f * shine
+        onDrawWithContent {
+            val t = tilt().coerceIn(-1f, 1f)
+
+            // Тело стекла
+            drawRect(base.copy(alpha = a * 0.65f))
+            drawRect(veil)
+            drawRect(tint)
+            drawRect(shade)
+
+            // Свет сверху и каустика внизу
             drawRect(
-                Brush.linearGradient(
-                    0f to Color.Transparent,
-                    0.5f to Color.White.copy(alpha = 0.24f),
-                    1f to Color.Transparent,
-                    start = Offset(x - w * 0.25f, 0f),
-                    end = Offset(x + w * 0.25f, h * 0.6f),
+                Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = 0.34f), Color.Transparent),
+                    center = Offset(w * (0.20f + 0.30f * t), -h * 0.1f),
+                    radius = w * 0.6f,
                 ),
             )
+            drawRect(
+                Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = 0.24f), Color.Transparent),
+                    center = Offset(w * (0.82f + 0.15f * t), h * 1.05f),
+                    radius = w * 0.55f,
+                ),
+            )
+
+            // «Жидкий» блик
+            val shine = sheen()
+            if (shine in 0f..1f) {
+                val x = -w * 0.4f + w * 1.8f * shine
+                drawRect(
+                    Brush.linearGradient(
+                        0f to Color.Transparent,
+                        0.5f to Color.White.copy(alpha = 0.30f),
+                        1f to Color.Transparent,
+                        start = Offset(x - w * 0.2f, 0f),
+                        end = Offset(x + w * 0.2f, h * 0.7f),
+                    ),
+                )
+            }
+
+            // Свечение по кромке
+            for (stroke in glow) drawOutline(outline, glowColor, style = stroke)
+
+            drawContent()
+
+            // Кромка-линза
+            val shift = t * w * 0.35f
+            val rim = Brush.linearGradient(
+                0f to Color.White.copy(alpha = 0.95f),
+                0.18f to Color.White.copy(alpha = 0.4f),
+                0.45f to Color.White.copy(alpha = 0.08f),
+                0.72f to Color.White.copy(alpha = 0.25f),
+                1f to Color(0xFFD6E8FF).copy(alpha = 0.95f),
+                start = Offset(-shift, 0f),
+                end = Offset(w - shift, h),
+            )
+            drawOutline(outline, rim, alpha = 0.4f, style = wideRim)
+            drawOutline(outline, rim, style = thinRim)
+
+            // Дисперсия (цветная кайма)
+            translate(-dp * 1.5f, -dp * 1.5f) {
+                drawOutline(outline, Color(0xFF7DF9FF).copy(alpha = 0.22f), style = fringe)
+            }
+            translate(dp * 1.5f, dp * 1.5f) {
+                drawOutline(outline, Color(0xFFFF8AD8).copy(alpha = 0.20f), style = fringe)
+            }
         }
-
-        // Свечение вдоль кромки: полоски убывающей яркости складываются в плавный спад внутрь
-        for (stroke in glow) drawOutline(outline, glowColor, style = stroke)
-
-        drawContent()
-
-        // Кромка-линза: яркая слева сверху и справа снизу, посередине почти гаснет; при наклоне сдвигается
-        val shift = t * w * 0.35f
-        val rim = Brush.linearGradient(
-            0f to Color.White.copy(alpha = 0.95f),
-            0.18f to Color.White.copy(alpha = 0.35f),
-            0.45f to Color.White.copy(alpha = 0.06f),
-            0.72f to Color.White.copy(alpha = 0.22f),
-            1f to Color(0xFFD6E8FF).copy(alpha = 0.9f),
-            start = Offset(-shift, 0f),
-            end = Offset(w - shift, h),
-        )
-        drawOutline(outline, rim, alpha = 0.35f, style = wideRim)
-        drawOutline(outline, rim, style = thinRim)
-        // Дисперсия: свет раскладывается на цвета по краям
-        translate(-dp, -dp) { drawOutline(outline, Color(0xFF7DF9FF).copy(alpha = 0.20f), style = fringe) }
-        translate(dp, dp) { drawOutline(outline, Color(0xFFFF8AD8).copy(alpha = 0.18f), style = fringe) }
     }
-}
+    // Размытие подложки (Android 12+)
+    .then(
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            Modifier.graphicsLayer {
+                renderEffect = androidx.compose.ui.graphics.BlurEffect(
+                    12f,
+                    12f,
+                    androidx.compose.ui.graphics.TileMode.Decal,
+                )
+            }
+        } else Modifier,
+    )
 
 /**
  * Знак бесконтактной оплаты (Contactless Indicator, EMVCo) — тот самый, что печатают на терминалах
@@ -473,7 +497,6 @@ fun ContactlessWaves(color: Color, animate: Boolean, modifier: Modifier = Modifi
     val moving = if (animate) transition.animateFloat(0f, 1f, infiniteRepeatable(tween(800, easing = LinearEasing)), label = "phase") else null
     Canvas(modifier) {
         val phase = moving?.value ?: 0.6f
-        // Сетка 24×24, как у значка в ролике: центр дуг слева посередине
         val k = size.minDimension / 24f
         val c = Offset(4f * k, size.height / 2)
         for (i in 0..3) {
@@ -546,7 +569,6 @@ fun FitText(
             }
             sz.sp
         }
-        // Тот же стиль, по которому мерили: шрифт темы (Inter) и его межбуквенный интервал
         Text(text, color = color, fontSize = size, fontWeight = weight, maxLines = 1, softWrap = false,
             overflow = TextOverflow.Ellipsis, style = base)
     }
@@ -597,7 +619,6 @@ fun TurnArrow(turn: Turn, color: Color, modifier: Modifier = Modifier) {
                 head.moveTo(30 * k, 40 * k); head.lineTo(50 * k, 18 * k); head.lineTo(70 * k, 40 * k)
             }
             Turn.RIGHT, Turn.LEFT -> {
-                // Как значок поворота в ролике: вверх, скругление и вправо, наконечник — уголком
                 body.moveTo(x(25f) * k, 92 * k); body.lineTo(x(25f) * k, 50 * k)
                 body.quadraticBezierTo(x(25f) * k, 33.3f * k, x(41.7f) * k, 33.3f * k); body.lineTo(x(79f) * k, 33.3f * k)
                 head.moveTo(x(62.5f) * k, 16.7f * k); head.lineTo(x(79f) * k, 33.3f * k); head.lineTo(x(62.5f) * k, 50 * k)
