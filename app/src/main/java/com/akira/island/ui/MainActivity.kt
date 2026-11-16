@@ -10,6 +10,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -64,6 +69,7 @@ import com.akira.island.R
 import com.akira.island.core.LangScope
 import com.akira.island.core.tr
 import com.akira.island.data.SettingsRepo
+import com.akira.island.island.glassSurface
 import com.akira.island.ui.screens.AnimScreen
 import com.akira.island.ui.screens.AppInfoScreen
 import com.akira.island.ui.screens.BannersScreen
@@ -110,7 +116,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // «Не выгружать остров»: из фона Android может не запустить службу — запускаем, пока приложение открыто
         KeepAliveService.sync(this)
     }
 }
@@ -130,10 +135,8 @@ private fun AppRoot() {
     }
     BackHandler(enabled = stack.isNotEmpty(), onBack = back)
 
-    // Раз в 3 часа спрашиваем GitHub, не вышла ли новая версия; после обновления — «Что нового»
     val context = LocalContext.current
     LaunchedEffect(Unit) { UpdateChecker.check(context.applicationContext, force = false) }
-    // Сменили язык — экраны рисуются заново на нём, а открытая вкладка и экран остаются
     LangScope {
         WhatsNewDialog()
 
@@ -204,21 +207,54 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
         Icons.Rounded.Palette,
         Icons.Rounded.Info,
     )
+    
+    // Анимация «перелива»: медленно двигаем sheen и tilt, чтобы стекло «жило»
+    val transition = rememberInfiniteTransition(label = "glass")
+    val sheen by transition.animateFloat(
+        initialValue = -0.5f,
+        targetValue = 1.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "sheen",
+    )
+    val tilt by transition.animateFloat(
+        initialValue = -0.2f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "tilt",
+    )
+    
+    val shape = RoundedCornerShape(30.dp)
     Row(
         Modifier
             .navigationBarsPadding()
             .padding(start = 14.dp, end = 14.dp, bottom = 12.dp)
             .widthIn(max = 480.dp)
             .fillMaxWidth()
-            .shadow(16.dp, RoundedCornerShape(30.dp))
-            .clip(RoundedCornerShape(30.dp))
-            .background(Ui.Nav)
+            .shadow(20.dp, shape)
+            .clip(shape)
+            .glassSurface(
+                shape = shape,
+                base = Ui.Nav,
+                opacity = 0.35f,
+                tilt = { tilt },
+                sheen = { sheen },
+            )
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         tabTitles().forEachIndexed { i, title ->
             val on = i == selected
-            val pill by animateColorAsState(if (on) Ui.Primary else Ui.Nav, tween(200), label = "tab")
+            val pill by animateColorAsState(
+                targetValue = if (on) Ui.Primary.copy(alpha = 0.85f) else Color.Transparent,
+                animationSpec = tween(200),
+                label = "tab",
+            )
             Column(
                 Modifier
                     .weight(1f)
@@ -227,7 +263,13 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(Modifier.size(width = 56.dp, height = 32.dp).clip(CircleShape).background(pill), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(width = 56.dp, height = 32.dp)
+                        .clip(CircleShape)
+                        .background(pill),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(icons[i], title, tint = if (on) Ui.OnPrimary else Ui.Text, modifier = Modifier.size(24.dp))
                 }
                 Spacer(Modifier.height(4.dp))
