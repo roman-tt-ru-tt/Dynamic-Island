@@ -1,6 +1,5 @@
 package com.akira.island.ui
 
-import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -58,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
@@ -108,12 +108,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         SettingsRepo.init(this)
         enableEdgeToEdge(
-            enableEdgeToEdge(
-    statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-    navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-)
-            
-        
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent { IslandTheme { AppRoot() } }
     }
 
@@ -199,7 +196,6 @@ private fun AppRoot() {
     }
 }
 
-/** Вкладки: главная, что показывает остров, как он выглядит, и о приложении — отдельно от настроек. */
 private fun tabTitles() = listOf(tr("Главная", "Home"), tr("Функции", "Features"), tr("Оформление", "Appearance"), tr("О приложении", "About"))
 
 @Composable
@@ -210,8 +206,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
         Icons.Rounded.Palette,
         Icons.Rounded.Info,
     )
-    
-    // Анимация «перелива»: медленно двигаем sheen и tilt, чтобы стекло «жило»
+
     val transition = rememberInfiniteTransition(label = "glass")
     val sheen by transition.animateFloat(
         initialValue = -0.5f,
@@ -231,7 +226,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
         ),
         label = "tilt",
     )
-    
+
     val shape = RoundedCornerShape(30.dp)
     Row(
         Modifier
@@ -283,7 +278,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun TabLabel(text: String, color: androidx.compose.ui.graphics.Color, bold: Boolean) {
+private fun TabLabel(text: String, color: Color, bold: Boolean) {
     val measurer = rememberTextMeasurer()
     val base = LocalTextStyle.current
     val weight = if (bold) FontWeight.SemiBold else FontWeight.Medium
