@@ -9,11 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
@@ -97,6 +97,7 @@ import com.akira.island.ui.screens.SizeScreen
 import com.akira.island.ui.screens.TestsScreen
 import com.akira.island.service.KeepAliveService
 import com.akira.island.update.UpdateChecker
+import kotlinx.coroutines.launch
 
 enum class Screen {
     CARDS, EVENTS, GESTURES, LYRICS, SIZE, COLORS, INSTRUCTION, ABOUT, DIAG, LOOK, ANIM, EFFECTS, BANNERS,
@@ -206,42 +207,38 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
         Icons.Rounded.Palette,
         Icons.Rounded.Info,
     )
-
-    val transition = rememberInfiniteTransition(label = "glass")
-    val sheen by transition.animateFloat(
-        initialValue = -0.5f,
-        targetValue = 1.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 8000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "sheen",
-    )
-    val tilt by transition.animateFloat(
-        initialValue = -0.2f,
-        targetValue = 0.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 6000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "tilt",
-    )
-
+    
+    // Анимация «всплеска стекла» при нажатии на вкладку
+    var glass by remember { mutableStateOf(false) }
+    val scale = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
     val shape = RoundedCornerShape(30.dp)
+
     Row(
         Modifier
             .navigationBarsPadding()
             .padding(start = 14.dp, end = 14.dp, bottom = 12.dp)
             .widthIn(max = 480.dp)
             .fillMaxWidth()
-            .shadow(20.dp, shape)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+            }
+            .shadow(if (glass) 24.dp else 16.dp, shape)
             .clip(shape)
-            .glassSurface(
-                shape = shape,
-                base = Ui.Nav,
-                opacity = 0.35f,
-                tilt = { tilt },
-                sheen = { sheen },
+            .then(
+                if (glass) {
+                    Modifier.glassSurface(
+                        shape = shape,
+                        base = Ui.Nav,
+                        opacity = 0.55f,
+                        tilt = { 0.1f },
+                        sheen = { 0.5f },
+                    )
+                } else {
+                    Modifier.background(Ui.Nav)
+                },
             )
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -249,7 +246,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
         tabTitles().forEachIndexed { i, title ->
             val on = i == selected
             val pill by animateColorAsState(
-                targetValue = if (on) Ui.Primary.copy(alpha = 0.85f) else Color.Transparent,
+                targetValue = if (on) Ui.Primary else Ui.Nav,
                 animationSpec = tween(200),
                 label = "tab",
             )
@@ -257,7 +254,19 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
                 Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(24.dp))
-                    .clickable { onSelect(i) }
+                    .clickable {
+                        onSelect(i)
+                        // Всплеск стекла на ~0.8 секунды
+                        glass = true
+                        scope.launch {
+                            scale.animateTo(1.06f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessMediumLow))
+                            scale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium))
+                        }
+                        scope.launch {
+                            kotlinx.coroutines.delay(800)
+                            glass = false
+                        }
+                    }
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
