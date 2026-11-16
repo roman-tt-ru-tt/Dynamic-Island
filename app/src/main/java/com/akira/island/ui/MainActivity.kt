@@ -108,9 +108,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         SettingsRepo.init(this)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-        )
+            enableEdgeToEdge(
+    statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+    navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+)
+            
+        
         setContent { IslandTheme { AppRoot() } }
     }
 
