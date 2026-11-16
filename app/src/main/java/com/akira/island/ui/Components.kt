@@ -1,5 +1,6 @@
 package com.akira.island.ui
 
+import com.akira.island.island.rememberHaptic
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
