@@ -220,6 +220,9 @@ data class IslandSettings(
     val msgInApp: Boolean = false,
     val msgChannels: Map<String, String> = emptyMap(),
     val bannerHintHidden: Boolean = false,
+
+    // Будильник Xiaomi
+    val alarmXiaomiShift: Boolean = true, // ← НОВОЕ ПОЛЕ
 ) {
     fun forPowerSave(on: Boolean): IslandSettings = if (on && batterySaver && !reduceEffects) copy(reduceEffects = true) else this
     fun inSchedule(hour: Int): Boolean = when {
