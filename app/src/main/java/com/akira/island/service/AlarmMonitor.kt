@@ -30,7 +30,7 @@ import java.util.TimeZone
  * поэтому берём только поставленные приложением-будильником («Часы», Alarmy и т. п.).
  *
  * ⚠️ На Xiaomi/Redmi (MIUI/HyperOS) системные «Часы» кладут в AlarmManager время на 1 час меньше,
- * чем показывают в своём UI (баг прошивки). Компенсируем это, если включена настройка [SettingsRepo.alarmXiaomiShift].
+ * чем показывают в своём UI (баг прошивки). Компенсируем это, если включена настройка alarmXiaomiShift.
  */
 class AlarmMonitor(private val context: Context) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
@@ -74,8 +74,9 @@ class AlarmMonitor(private val context: Context) {
             runCatching { ClockApps.isAlarmApp(context, it) }.getOrDefault(false)
         } ?: false
 
-        // Компенсация сдвига Xiaomi/HyperOS (только для приложений-«Часов» этой прошивки)
-        val shiftMs = if (shouldCompensateXiaomi(pkg)) HOUR_MS else 0L
+        // Компенсация сдвига Xiaomi/HyperOS
+        val isXiaomiShift = shouldCompensateXiaomi(pkg)
+        val shiftMs = if (isXiaomiShift) HOUR_MS else 0L
         val triggerAt = if (rawTrigger > 0L) rawTrigger + shiftMs else 0L
 
         AppLog.log(
@@ -87,14 +88,12 @@ class AlarmMonitor(private val context: Context) {
                 "nowMillis=$now; nowLocal=${local(now)}; nowUtc=${utc(now)}; " +
                 "rawTriggerMillis=$rawTrigger; " +
                 "rawTriggerLocal=${if (rawTrigger > 0L) local(rawTrigger) else "NONE"}; " +
-                "shiftMs=$shiftMs; triggerMillis=$triggerAt; " +
+                "isXiaomiShift=$isXiaomiShift; shiftMs=$shiftMs; triggerMillis=$triggerAt; " +
                 "triggerLocal=${if (triggerAt > 0L) local(triggerAt) else "NONE"}; " +
                 "triggerUtc=${if (triggerAt > 0L) utc(triggerAt) else "NONE"}; " +
                 "deltaMinutes=${if (triggerAt > 0L) (triggerAt - now) / 60_000 else -1}"
         )
 
-        // Сохраняем исходную логику проекта: принимаем только приложения,
-        // которые Android/ClockApps распознаёт как приложения будильника.
         val next = info?.takeIf { alarm ->
             alarm.showIntent?.creatorPackage?.let {
                 ClockApps.isAlarmApp(context, it)
@@ -103,15 +102,14 @@ class AlarmMonitor(private val context: Context) {
             AlarmInfo(
                 triggerAt = triggerAt,
                 pkg = it.showIntent?.creatorPackage,
-                showIntent = it.showIntent,
-                rawTriggerAt = rawTrigger,
+                show = it.showIntent,
             )
         }
 
         AppLog.log(
             "AlarmTrace",
             "RESULT accepted=${next != null}; selectedPackage=${next?.pkg}; " +
-                "rawTrigger=${next?.rawTriggerAt ?: 0L}; selectedTrigger=${next?.triggerAt ?: 0L}"
+                "selectedTrigger=${next?.triggerAt ?: 0L}"
         )
 
         val prev = IslandBus.nextAlarm.value
@@ -119,8 +117,6 @@ class AlarmMonitor(private val context: Context) {
         if (!announce || next == null || prev?.triggerAt == next.triggerAt) return
 
         if (next.triggerAt <= now) return
-        // Прошлый будильник уже прозвенел или его отложили — это не новый,
-        // а очередной по расписанию.
         if (prev != null && prev.triggerAt <= now + 60_000) return
 
         val settings = SettingsRepo.current
@@ -138,12 +134,6 @@ class AlarmMonitor(private val context: Context) {
         )
     }
 
-    /**
-     * Компенсация сдвига будильника на Xiaomi/Redmi (MIUI/HyperOS).
-     * Системные «Часы» этой прошивки кладут в AlarmManager время на час меньше,
-     * чем показывают в своём UI. Компенсируем только для их пакетов и только
-     * при включённой настройке.
-     */
     private fun shouldCompensateXiaomi(pkg: String?): Boolean {
         if (pkg == null) return false
         if (!SettingsRepo.current.alarmXiaomiShift) return false
