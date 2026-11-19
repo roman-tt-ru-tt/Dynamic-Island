@@ -221,8 +221,15 @@ data class IslandSettings(
     val msgChannels: Map<String, String> = emptyMap(),
     val bannerHintHidden: Boolean = false,
 
-    // Будильник Xiaomi
-    val alarmXiaomiShift: Boolean = true, // ← НОВОЕ ПОЛЕ
+    // Будильник Xiaomi (системный)
+    val alarmXiaomiShift: Boolean = true,
+
+    // Встроенный будильник
+    val builtInAlarmEnabled: Boolean = false,
+    val builtInAlarmHour: Int = 7,
+    val builtInAlarmMinute: Int = 30,
+    val builtInAlarmDays: List<Int> = emptyList(),
+    val builtInAlarmNextAt: Long = 0L,
 ) {
     fun forPowerSave(on: Boolean): IslandSettings = if (on && batterySaver && !reduceEffects) copy(reduceEffects = true) else this
     fun inSchedule(hour: Int): Boolean = when {
