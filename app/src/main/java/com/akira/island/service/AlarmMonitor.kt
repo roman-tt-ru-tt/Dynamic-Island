@@ -17,40 +17,64 @@ import com.akira.island.core.Tints
 import com.akira.island.core.tr
 import com.akira.island.data.SettingsRepo
 import com.akira.island.island.Ios
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Ближайший будильник. Его знает сама система (AlarmManager.getNextAlarmClock) — уведомления «Часов»
- * для этого не нужны. Поставили новый будильник — остров показывает плашку со временем подъёма;
- * следующий по расписанию (прошлый прозвенел или отложен) — молча.
- * Будильником системы пользуются и календари, напоминалки, трекеры сна — их «будильник» человек не ставил,
- * поэтому берём только поставленные приложением-будильником («Часы», Alarmy и т. п.).
- *
- * ⚠️ На Xiaomi/Redmi (MIUI/HyperOS) системные «Часы» кладут в AlarmManager время на 1 час меньше,
- * чем показывают в своём UI (баг прошивки). Компенсируем это, если включена настройка alarmXiaomiShift.
+ * Монитор будильников.
+ * Если встроенный будильник включен — показывает ТОЛЬКО его (игнорирует системный).
+ * Если выключен — работает со системным AlarmManager (с компенсацией сдвига Xiaomi).
  */
 class AlarmMonitor(private val context: Context) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
+    private val scope = CoroutineScope(Dispatchers.Default)
+    private var pollJob: Job? = null
+
     private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(c: Context, intent: Intent) = refresh(announce = true)
+        override fun onReceive(c: Context, intent: Intent) = refresh(announce = true, fromPolling = false)
     }
 
     fun start() {
         ContextCompat.registerReceiver(
             context, receiver, IntentFilter(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED), ContextCompat.RECEIVER_EXPORTED,
         )
-        refresh(announce = false)
+        refresh(announce = false, fromPolling = false)
+        
+        // Опрос каждые 10 секунд для системного будильника (если встроенный выключен)
+        pollJob = scope.launch {
+            while (isActive) {
+                delay(10_000)
+                if (!SettingsRepo.current.builtInAlarmEnabled) {
+                    refresh(announce = false, fromPolling = true)
+                }
+            }
+        }
     }
 
     fun stop() {
         runCatching { context.unregisterReceiver(receiver) }
+        pollJob?.cancel()
         IslandBus.nextAlarm.value = null
+        IslandBus.builtInAlarm.value = null
     }
 
-    private fun refresh(announce: Boolean) {
+    private fun refresh(announce: Boolean, fromPolling: Boolean) {
+        val settings = SettingsRepo.current
+        
+        // Если встроенный будильник включен — игнорируем системный.
+        // Данные для острова приходят из BuiltInAlarmScheduler.
+        if (settings.builtInAlarmEnabled) {
+            return
+        }
+
         val info = runCatching { alarms?.nextAlarmClock }
             .onFailure { AppLog.logException("AlarmTrace", it) }
             .getOrNull()
@@ -60,15 +84,11 @@ class AlarmMonitor(private val context: Context) {
         val pkg = info?.showIntent?.creatorPackage
         val zone = TimeZone.getDefault()
 
-        fun local(value: Long): String = SimpleDateFormat(
-            "yyyy-MM-dd HH:mm:ss.SSS Z",
-            Locale.US,
-        ).apply { timeZone = zone }.format(Date(value))
+        fun local(value: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS Z", Locale.US)
+            .apply { timeZone = zone }.format(Date(value))
 
-        fun utc(value: Long): String = SimpleDateFormat(
-            "yyyy-MM-dd HH:mm:ss.SSS 'UTC'",
-            Locale.US,
-        ).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(value))
+        fun utc(value: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS 'UTC'", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(value))
 
         val acceptedByClockApps = pkg?.let {
             runCatching { ClockApps.isAlarmApp(context, it) }.getOrDefault(false)
@@ -77,22 +97,24 @@ class AlarmMonitor(private val context: Context) {
         // Компенсация сдвига Xiaomi/HyperOS
         val isXiaomiShift = shouldCompensateXiaomi(pkg)
         val shiftMs = if (isXiaomiShift) HOUR_MS else 0L
-        val triggerAt = if (rawTrigger > 0L) rawTrigger + shiftMs else 0L
+        var triggerAt = if (rawTrigger > 0L) rawTrigger + shiftMs else 0L
 
-        AppLog.log(
-            "AlarmTrace",
-            "REFRESH announce=$announce; alarmManagerNull=${alarms == null}; " +
-                "infoNull=${info == null}; creatorPackage=$pkg; " +
-                "isAlarmApp=$acceptedByClockApps; timezone=${zone.id}; " +
-                "offsetMinutes=${zone.getOffset(now) / 60_000}; " +
-                "nowMillis=$now; nowLocal=${local(now)}; nowUtc=${utc(now)}; " +
-                "rawTriggerMillis=$rawTrigger; " +
-                "rawTriggerLocal=${if (rawTrigger > 0L) local(rawTrigger) else "NONE"}; " +
-                "isXiaomiShift=$isXiaomiShift; shiftMs=$shiftMs; triggerMillis=$triggerAt; " +
-                "triggerLocal=${if (triggerAt > 0L) local(triggerAt) else "NONE"}; " +
-                "triggerUtc=${if (triggerAt > 0L) utc(triggerAt) else "NONE"}; " +
-                "deltaMinutes=${if (triggerAt > 0L) (triggerAt - now) / 60_000 else -1}"
-        )
+        // Защита от прошлого
+        if (triggerAt > 0L && triggerAt <= now) {
+            triggerAt += DAY_MS
+        }
+
+        if (!fromPolling || triggerAt != IslandBus.nextAlarm.value?.triggerAt) {
+            AppLog.log(
+                "AlarmTrace",
+                "REFRESH announce=$announce fromPolling=$fromPolling; " +
+                    "creatorPackage=$pkg; isAlarmApp=$acceptedByClockApps; " +
+                    "rawTriggerLocal=${if (rawTrigger > 0L) local(rawTrigger) else "NONE"}; " +
+                    "isXiaomiShift=$isXiaomiShift; shiftMs=$shiftMs; " +
+                    "triggerLocal=${if (triggerAt > 0L) local(triggerAt) else "NONE"}; " +
+                    "deltaMinutes=${if (triggerAt > 0L) (triggerAt - now) / 60_000 else -1}"
+            )
+        }
 
         val next = info?.takeIf { alarm ->
             alarm.showIntent?.creatorPackage?.let {
@@ -106,32 +128,27 @@ class AlarmMonitor(private val context: Context) {
             )
         }
 
-        AppLog.log(
-            "AlarmTrace",
-            "RESULT accepted=${next != null}; selectedPackage=${next?.pkg}; " +
-                "selectedTrigger=${next?.triggerAt ?: 0L}"
-        )
-
         val prev = IslandBus.nextAlarm.value
         IslandBus.nextAlarm.value = next
-        if (!announce || next == null || prev?.triggerAt == next.triggerAt) return
 
+        if (next == null) return
         if (next.triggerAt <= now) return
-        if (prev != null && prev.triggerAt <= now + 60_000) return
+        if (prev != null && prev.triggerAt == next.triggerAt) return
 
-        val settings = SettingsRepo.current
-        if (!settings.enabled || !settings.evAlarmSet) return
+        if (!fromPolling || prev?.triggerAt != next.triggerAt) {
+            if (!settings.enabled || !settings.evAlarmSet) return
 
-        IslandBus.post(
-            Notice(
-                title = tr("Будильник", "Alarm"),
-                icon = Ios.load(context, R.drawable.ios_alarm),
-                tint = Tints.Orange,
-                style = NoticeStyle.ALARM,
-                alarm = next,
-                extraMs = 2_000,
-            ),
-        )
+            IslandBus.post(
+                Notice(
+                    title = tr("Будильник", "Alarm"),
+                    icon = Ios.load(context, R.drawable.ios_alarm),
+                    tint = Tints.Orange,
+                    style = NoticeStyle.ALARM,
+                    alarm = next,
+                    extraMs = 2_000,
+                ),
+            )
+        }
     }
 
     private fun shouldCompensateXiaomi(pkg: String?): Boolean {
@@ -146,6 +163,7 @@ class AlarmMonitor(private val context: Context) {
 
     companion object {
         private const val HOUR_MS = 3_600_000L
+        private const val DAY_MS = 86_400_000L
         private val XIAOMI_CLOCK_PACKAGES = setOf(
             "com.android.deskclock",
             "com.miui.clock",
