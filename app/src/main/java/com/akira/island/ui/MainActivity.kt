@@ -70,6 +70,7 @@ import com.akira.island.core.LangScope
 import com.akira.island.core.tr
 import com.akira.island.data.SettingsRepo
 import com.akira.island.island.glassSurface
+import com.akira.island.ui.screens.AlarmScreen
 import com.akira.island.ui.screens.AnimScreen
 import com.akira.island.ui.screens.AppInfoScreen
 import com.akira.island.ui.screens.BannersScreen
@@ -101,7 +102,7 @@ import kotlinx.coroutines.launch
 
 enum class Screen {
     CARDS, EVENTS, GESTURES, LYRICS, SIZE, COLORS, INSTRUCTION, ABOUT, DIAG, LOOK, ANIM, EFFECTS, BANNERS,
-    PERMISSIONS, TESTS, NOTIFICATIONS, BEHAVIOR, PAYDIAG, KEEPALIVE, BANKS, LOGS,
+    PERMISSIONS, TESTS, NOTIFICATIONS, BEHAVIOR, PAYDIAG, KEEPALIVE, BANKS, LOGS, ALARM, // <-- ALARM ДОБАВЛЕН
 }
 
 class MainActivity : ComponentActivity() {
@@ -182,6 +183,7 @@ private fun AppRoot() {
                     Screen.NOTIFICATIONS.name -> NotificationsScreen(back)
                     Screen.BEHAVIOR.name -> BehaviorScreen(back)
                     Screen.LOGS.name -> LogsScreen(back)
+                    Screen.ALARM.name -> AlarmScreen(back) // <-- ДОБАВЛЕНА НАВИГАЦИЯ
                 }
             }
 
