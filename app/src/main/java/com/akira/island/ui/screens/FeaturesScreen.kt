@@ -107,16 +107,9 @@ fun FeaturesScreen(open: (Screen) -> Unit) {
             GroupItem(Pos.Middle, Icons.Rounded.Tune, tr("Поведение", "Behavior"),
                 tr("Когда показывать и сворачивать остров, виброотклик", "When to show and collapse the island, haptics"),
                 color = Tile.Indigo, onClick = { open(Screen.BEHAVIOR) }) { Arrow() }
-            GroupItem(Pos.Middle, Icons.Rounded.Alarm, tr("Будильник Xiaomi", "Xiaomi alarm"),
-                tr("Исправляет сдвиг на 1 час в HyperOS", "Fixes the 1-hour shift on HyperOS"),
-                color = Tile.Red) {
-                Switch(
-                    checked = s.alarmXiaomiShift,
-                    onCheckedChange = { enabled ->
-                        SettingsRepo.update { copy(alarmXiaomiShift = enabled) }
-                    }
-                )
-            }
+            GroupItem(Pos.Middle, Icons.Rounded.Alarm, tr("Будильник", "Alarm"),
+                tr("Встроенный будильник с выбором дней", "Built-in alarm with day selection"),
+                color = Tile.Red, onClick = { open(Screen.ALARM) }) { Arrow() }
             GroupItem(Pos.Last, Icons.Rounded.NotificationsOff, tr("Системные плашки", "System banners"),
                 tr("Чтобы звонок, таймер и батарею показывал только остров", "So only the island shows calls, timers and battery"),
                 color = Tile.Red, onClick = { open(Screen.BANNERS) }) { Arrow() }
