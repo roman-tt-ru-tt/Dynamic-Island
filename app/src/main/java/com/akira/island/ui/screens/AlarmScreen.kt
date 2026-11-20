@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
@@ -21,7 +19,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -34,22 +31,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.akira.island.core.tr
 import com.akira.island.data.SettingsRepo
 import com.akira.island.service.BuiltInAlarmScheduler
+import com.akira.island.ui.Group
+import com.akira.island.ui.GroupToggle
 import com.akira.island.ui.Page
+import com.akira.island.ui.Pos
 import com.akira.island.ui.SectionHeader
+import com.akira.island.ui.Tile
 import com.akira.island.ui.Ui
-import java.util.Calendar
 
 @Composable
 fun AlarmScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     val s by SettingsRepo.state.collectAsState()
     
-    // Состояния для выбора времени
     val timeState = rememberTimePickerState(
         initialHour = s.builtInAlarmHour,
         initialMinute = s.builtInAlarmMinute,
@@ -58,32 +59,25 @@ fun AlarmScreen(onBack: () -> Unit) {
     
     var selectedDays by remember { mutableStateOf(s.builtInAlarmDays) }
 
-    Page(tr("Будильник", "Alarm")) {
+    Page(tr("Будильник", "Alarm"), onBack) {
         SectionHeader(tr("Встроенный будильник", "Built-in alarm"))
-
-        // Включение/выключение
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
+        
+        Group {
+            GroupToggle(
+                Pos.Single, 
+                Icons.Rounded.Alarm, 
                 tr("Включить будильник", "Enable alarm"),
-                fontSize = 17.sp,
-                color = Ui.Text
-            )
-            Switch(
-                checked = s.builtInAlarmEnabled,
-                onCheckedChange = { enabled ->
-                    SettingsRepo.update { copy(builtInAlarmEnabled = enabled) }
-                    BuiltInAlarmScheduler.schedule(com.akira.island.ui.MainActivity.getInstance() ?: return@Switch)
-                }
-            )
+                tr("Будет звонить в выбранное время", "Will ring at the selected time"),
+                s.builtInAlarmEnabled, 
+                color = Tile.Red
+            ) { enabled ->
+                SettingsRepo.update { copy(builtInAlarmEnabled = enabled) }
+                BuiltInAlarmScheduler.schedule(context)
+            }
         }
 
         Spacer(Modifier.height(20.dp))
 
-        // Выбор времени
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
@@ -93,7 +87,6 @@ fun AlarmScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(20.dp))
 
-        // Выбор дней недели
         SectionHeader(tr("Дни недели", "Days of the week"))
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -131,7 +124,6 @@ fun AlarmScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(30.dp))
 
-        // Кнопка сохранения
         Button(
             onClick = {
                 SettingsRepo.update {
@@ -139,13 +131,10 @@ fun AlarmScreen(onBack: () -> Unit) {
                         builtInAlarmHour = timeState.hour,
                         builtInAlarmMinute = timeState.minute,
                         builtInAlarmDays = selectedDays,
-                        builtInAlarmNextAt = 0L // Пересчитаем
+                        builtInAlarmNextAt = 0L
                     )
                 }
-                val ctx = com.akira.island.ui.MainActivity.getInstance()
-                if (ctx != null) {
-                    BuiltInAlarmScheduler.schedule(ctx)
-                }
+                BuiltInAlarmScheduler.schedule(context)
                 onBack()
             },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(50.dp),
