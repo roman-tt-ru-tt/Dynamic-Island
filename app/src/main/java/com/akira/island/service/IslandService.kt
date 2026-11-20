@@ -174,6 +174,7 @@ class IslandService : AccessibilityService() {
         clockReader = ClockScreenReader(this, scope).also { ClockControl.reader = it }
         payReader = PayScreenReader(this, scope)
         alarmMonitor = AlarmMonitor(this).also { it.start() }
+        BuiltInAlarmScheduler.schedule(this) // <-- ДОБАВЛЕНО
         IslandBus.serviceRunning.value = true
         AppLog.log("Service", "Island service connected")
 
